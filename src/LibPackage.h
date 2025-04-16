@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 LTTS Ltd.
+ * Copyright 2021 Liberty Global Service B.V.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,38 +17,35 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
- #include <fstream>
- #include <iostream>
- #include <stdlib.h>
- #include <string>
- #include <json/json.h>
- 
- typedef enum _ApplicationType
- {
-    APPLICATION_TYPE_UNKNOWN = 0,
-    APPLICATION_TYPE_INTERACTIVE,
-    APPLICATION_TYPE_SYSTEM
- } ApplicationType;
+#include "IPackageImpl.h"
+#include <iostream>
 
- typedef struct _ConfObject
- {
-    uint32_t systemMemoryLimit;
-    uint32_t gpuMemoryLimit;
-    bool dial;
-    std::string dialId;
-    bool wanLanAccess;
-    bool thunder;
-    std::string command;
-    ApplicationType type;
-    std::string appPath;
-    std::string runtimePath;
-    std::vector<std::string> envVariables;
-    std::string fireboltVersion;
-    uint32_t cores;
- } ConfObject;
+namespace packagemanager
+{
 
-uint32_t Lock(const std::string& packageId, const std::string& version, ConfObject& response);
-uint32_t Install(const std::string& packageId, const std::string& version,const std::string& fileLocator, ConfObject& response);
-uint32_t Initialize(ConfObject& response);
+    class LibPackage : public IPackageImpl
+    {
+    public:
+        ~LibPackage() override = default;
+
+        uint32_t Install(const std::string &packageId, const std::string &version, const std::string &fileLocator) override;
+        uint32_t Uninstall(const std::string &packageId) override;
+
+        uint32_t GetList(std::string &packageList) override;
+
+        uint32_t Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath) override;
+        uint32_t Unlock(const std::string &packageId, const std::string &version) override;
+
+        uint32_t GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
+
+        //static std::shared_ptr<packagemanager::IPackageImpl> instance();
+
+    private:
+        LibPackage() = default;
+        static std::shared_ptr<packagemanager::IPackageImpl> instance;
+    };
+
+} // namespace packagemanager
+
