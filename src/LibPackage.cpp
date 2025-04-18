@@ -15,24 +15,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 #include "LibPackage.h"
 
 namespace packagemanager
 {
-    Result LibPackage::Initialize(ConfigMetadataArray &configMetadata){
-	    return SUCCESS;
+    Result LibPackage::Initialize(ConfigMetadataArray &configMetadata)
+    {
+        return SUCCESS;
     }
 
-    Result LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) 
+    Result LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata)
     {
-	    return SUCCESS;
+        return SUCCESS;
     }
 
     Result LibPackage::Uninstall(const std::string &packageId)
     {
-	    return SUCCESS;
+        return SUCCESS;
     }
 
     Result LibPackage::GetList(std::string &packageList)
@@ -56,4 +57,3 @@ namespace packagemanager
     }
 
 }
-

@@ -15,7 +15,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 #pragma once
 
@@ -29,23 +29,22 @@ namespace packagemanager
     public:
         ~LibPackage() override = default;
 
-    Result Initialize(ConfigMetadataArray &configMetadata) override;
+        Result Initialize(ConfigMetadataArray &configMetadata) override;
 
-    Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
-    Result Uninstall(const std::string &packageId) override;
+        Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
+        Result Uninstall(const std::string &packageId) override;
 
-    Result GetList(std::string &packageList) override;
+        Result GetList(std::string &packageList) override;
 
-    Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
-    Result Unlock(const std::string &packageId, const std::string &version) override;
+        Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
+        Result Unlock(const std::string &packageId, const std::string &version) override;
 
-    Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
+        Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
 
-    static std::shared_ptr<packagemanager::IPackageImpl> instance();
+        static std::shared_ptr<packagemanager::IPackageImpl> instance();
 
     private:
         LibPackage() = default;
     };
 
 }
-
