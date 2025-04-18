@@ -21,35 +21,38 @@
 
 namespace packagemanager
 {
-
-    uint32_t LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator)
-    {
-        return 0;
+    Result LibPackage::Initialize(ConfigMetadataArray &configMetadata){
+	    return SUCCESS;
     }
 
-    uint32_t LibPackage::Uninstall(const std::string &packageId)
+    Result LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) 
     {
-        return 0;
+	    return SUCCESS;
     }
 
-    uint32_t LibPackage::GetList(std::string &packageList)
+    Result LibPackage::Uninstall(const std::string &packageId)
     {
-        return 0;
+	    return SUCCESS;
     }
 
-    uint32_t LibPackage::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath)
+    Result LibPackage::GetList(std::string &packageList)
     {
-        return 0;
+        return SUCCESS;
     }
 
-    uint32_t LibPackage::Unlock(const std::string &packageId, const std::string &version)
+    Result LibPackage::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata)
     {
-        return 0;
+        return SUCCESS;
     }
 
-    uint32_t LibPackage::GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked)
+    Result LibPackage::Unlock(const std::string &packageId, const std::string &version)
     {
-        return 0;
+        return SUCCESS;
+    }
+
+    Result LibPackage::GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked)
+    {
+        return SUCCESS;
     }
 
 }

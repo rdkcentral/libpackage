@@ -15,26 +15,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-project(LibPackage)
+project(Package)
 
-set(LIBPACKAGE_SRCS
+set(PACKAGE_SRCS
     src/LibPackage.cpp
 )
 
-include_directories(inc)
+include_directories(include)
 
-add_library(LibPackage SHARED
-    ${LIBPACKAGE_SRCS}
+
+add_library(Package SHARED
+    ${PACKAGE_SRCS}
 )
+set_target_properties(Package PROPERTIES VERSION 1.0.0 SOVERSION 1)
 
-set_target_properties(LibPackage PROPERTIES
-    OUTPUT_NAME "Package"
-    SUFFIX ".so"
-)
-
-install(TARGETS LibPackage DESTINATION lib)
+install(TARGETS Package DESTINATION lib)
 install(FILES
-    inc/LibPackage.h
-    inc/IPackageImpl.h
-    DESTINATION include/LibPackage
+    include/LibPackage.h
+    include/IPackageImpl.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )

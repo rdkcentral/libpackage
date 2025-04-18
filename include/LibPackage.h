@@ -29,16 +29,19 @@ namespace packagemanager
     public:
         ~LibPackage() override = default;
 
-        uint32_t Install(const std::string &packageId, const std::string &version, const std::string &fileLocator) override;
-        uint32_t Uninstall(const std::string &packageId) override;
+    Result Initialize(ConfigMetadataArray &configMetadata) override;
 
-        uint32_t GetList(std::string &packageList) override;
+    Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
+    Result Uninstall(const std::string &packageId) override;
 
-        uint32_t Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath) override;
-        uint32_t Unlock(const std::string &packageId, const std::string &version) override;
+    Result GetList(std::string &packageList) override;
 
-        uint32_t GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
+    Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
+    Result Unlock(const std::string &packageId, const std::string &version) override;
 
+    Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
+
+    static std::shared_ptr<packagemanager::IPackageImpl> instance();
 
     private:
         LibPackage() = default;
