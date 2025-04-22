@@ -29,14 +29,12 @@ namespace packagemanager
     public:
         ~LibPackage() override = default;
 
-        Result Initialize(ConfigMetadataArray &configMetadata) override;
-
-        Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
+        Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator) override;
         Result Uninstall(const std::string &packageId) override;
 
         Result GetList(std::string &packageList) override;
 
-        Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
+        Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath) override;
         Result Unlock(const std::string &packageId, const std::string &version) override;
 
         Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
