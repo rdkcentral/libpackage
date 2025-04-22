@@ -21,12 +21,8 @@
 
 namespace packagemanager
 {
-    Result LibPackage::Initialize(ConfigMetadataArray &configMetadata)
-    {
-        return SUCCESS;
-    }
 
-    Result LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata)
+    Result LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator)
     {
         return SUCCESS;
     }
@@ -41,7 +37,7 @@ namespace packagemanager
         return SUCCESS;
     }
 
-    Result LibPackage::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata)
+    Result LibPackage::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath)
     {
         return SUCCESS;
     }
