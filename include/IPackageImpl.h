@@ -50,6 +50,7 @@ namespace packagemanager
 
     typedef std::pair<std::string, std::string> ConfigMetadataKey;
     typedef std::map<ConfigMetadataKey, ConfigMetaData> ConfigMetadataArray;
+    typedef std::vector<std::pair<std::string, std::string> > NameValues;
 
     class IPackageImpl
     {
@@ -58,7 +59,7 @@ namespace packagemanager
 
         virtual Result Initialize(ConfigMetadataArray &configMetadata) = 0;
 
-        virtual Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) = 0;
+        virtual Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) = 0;
         virtual Result Uninstall(const std::string &packageId) = 0;
 
         virtual Result GetList(std::string &packageList) = 0;

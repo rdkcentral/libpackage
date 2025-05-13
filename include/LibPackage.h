@@ -30,8 +30,7 @@ namespace packagemanager
         ~LibPackage() override = default;
 
         Result Initialize(ConfigMetadataArray &configMetadata) override;
-
-        Result Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
+        Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
         Result Uninstall(const std::string &packageId) override;
 
         Result GetList(std::string &packageList) override;
