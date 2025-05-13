@@ -26,7 +26,7 @@ namespace packagemanager
         return SUCCESS;
     }
 
-    Result LibPackage::Install(const std::string &packageId, const std::string &version, const std::string &fileLocator, ConfigMetaData &configMetadata)
+    Result LibPackage::Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata)
     {
         return SUCCESS;
     }
