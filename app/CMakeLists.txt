@@ -17,9 +17,6 @@
 
 project("packageapp")
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
-
-
 set(PACKAGEAPP_SRCS
     PackageImplTestApp.cpp
 )
