@@ -61,6 +61,10 @@ namespace packagemanager
 
     Result PackageImpl::Uninstall(const std::string &packageId)
     {
+	if (packageId.empty()) {
+            ERROR("Package ID is empty. Cannot proceed with uninstallation.");
+            return FAILED;
+        }
         std::string uninstallType = "full"; // Assuming full uninstall
         std::string handle;
         DataStorage::AppDetails appDetails;
@@ -122,6 +126,10 @@ namespace packagemanager
 
     Result PackageImpl::Unlock(const std::string &packageId, const std::string &version)
     {
+	if (packageId.empty() || version.empty()) {
+            ERROR("Package ID or version is empty. Cannot proceed with unlocking.");
+            return FAILED;
+        }
         std::string handle;
         auto result = executor.Unlock(packageId, version);
         // The executor will handle the unlocking process, so we return SUCCESS here

@@ -48,3 +48,4 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 add_subdirectory(app)
+add_subdirectory(tests)
