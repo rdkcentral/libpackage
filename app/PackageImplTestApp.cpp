@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ bool testUnLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::
 bool testInstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
     std::cout << "Testing Install method..." << std::endl;
-    // Install a package
+    // Install a package. This is downloaded from DAC app store and placed in the specified location.
     std::string fileUrl = "/opt/downloads/com.rdk.app.cobalt2024-1.0.0-rpi4-1.0.0-b34e9a38a2675d4cd02cf89f7fc72874a4c99eb0-dbg.tar.gz";
     std::string packageId = "com.rdk.app.cobalt2024";
     std::string version = "1.0.0";
