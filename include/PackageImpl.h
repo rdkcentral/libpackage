@@ -20,30 +20,30 @@
 #pragma once
 
 #include "IPackageImpl.h"
-
+#include "Executor.h"
 namespace packagemanager
 {
 
-    class LibPackage : public IPackageImpl
+    class PackageImpl : public IPackageImpl
     {
     public:
-        ~LibPackage() override = default;
+        ~PackageImpl() override = default;
+        PackageImpl() {}
 
-        Result Initialize(ConfigMetadataArray &configMetadata) override;
+        Result Initialize(const std::string &configStr, ConfigMetadataArray &configMetadata) override;
+
         Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
-        Result Uninstall(const std::string &packageId) override;
-
-        Result GetList(std::string &packageList) override;
 
         Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
         Result Unlock(const std::string &packageId, const std::string &version) override;
-
         Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
 
-        static std::shared_ptr<packagemanager::IPackageImpl> instance();
+        Result GetList(std::string &packageList) override;
+
+        Result Uninstall(const std::string &packageId) override;
 
     private:
-        LibPackage() = default;
+        packagemanager::Executor executor;
     };
 
 }

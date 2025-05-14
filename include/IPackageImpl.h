@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 // @stubgen:skip
@@ -50,6 +49,7 @@ namespace packagemanager
 
     typedef std::pair<std::string, std::string> ConfigMetadataKey;
     typedef std::map<ConfigMetadataKey, ConfigMetaData> ConfigMetadataArray;
+
     typedef std::vector<std::pair<std::string, std::string> > NameValues;
 
     class IPackageImpl
@@ -57,7 +57,7 @@ namespace packagemanager
     public:
         virtual ~IPackageImpl() = default;
 
-        virtual Result Initialize(ConfigMetadataArray &configMetadata) = 0;
+        virtual Result Initialize(const std::string &configStr, ConfigMetadataArray &configMetadata) = 0;
 
         virtual Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) = 0;
         virtual Result Uninstall(const std::string &packageId) = 0;
