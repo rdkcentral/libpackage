@@ -62,12 +62,8 @@ namespace packagemanager
         virtual Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) = 0;
         virtual Result Uninstall(const std::string &packageId) = 0;
 
-        virtual Result GetList(std::string &packageList) = 0;
-
         virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) = 0;
         virtual Result Unlock(const std::string &packageId, const std::string &version) = 0;
-
-        virtual Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) = 0;
 
         static std::shared_ptr<packagemanager::IPackageImpl> instance();
     };

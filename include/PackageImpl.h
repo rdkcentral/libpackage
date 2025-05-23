@@ -36,9 +36,6 @@ namespace packagemanager
 
         Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
         Result Unlock(const std::string &packageId, const std::string &version) override;
-        Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) override;
-
-        Result GetList(std::string &packageList) override;
 
         Result Uninstall(const std::string &packageId) override;
 
