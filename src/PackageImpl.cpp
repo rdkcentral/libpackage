@@ -71,38 +71,6 @@ namespace packagemanager
         INFO("Uninstall handle: ", handle);
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
-    Result PackageImpl::GetList(std::string &packageList)
-    {
-        Result result = FAILED;
-        std::vector<packagemanager::DataStorage::AppDetails> appsDetailsList{};
-        auto rc = executor.GetAppDetailsList("", "", "", "", "", appsDetailsList);
-        if (rc == Executor::ReturnCodes::ERROR_NONE)
-        {
-            INFO("[PackageImpl::GetList] Retrieved ", appsDetailsList.size(), " app details");
-            boost::property_tree::ptree packages;
-
-            for (const auto &app : appsDetailsList)
-            {
-                INFO("App Details: ", app.type, ", ", app.id, ", ", app.version, ", ", app.appName, ", ", app.category, ", ", app.url);
-                // Create a JSON object for each app and add it to the packages array
-                boost::property_tree::ptree package;
-                package.put("packageId", app.id);
-                package.put("version", app.version);
-                packages.push_back(std::make_pair("", package));
-            }
-            INFO("Total packages found: ", packages.size());
-            // Write the property tree to a JSON string
-            std::ostringstream jsonStream;
-            boost::property_tree::write_json(jsonStream, packages);
-            packageList = jsonStream.str();
-            result = SUCCESS;
-        }
-        else
-        {
-            ERROR("Failed to retrieve package list, error code: ", rc);
-        }
-        return result;
-    }
 
     Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata)
     {
@@ -128,11 +96,6 @@ namespace packagemanager
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
-    Result PackageImpl::GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked)
-    {
-
-        return SUCCESS;
-    }
     std::shared_ptr<packagemanager::IPackageImpl> IPackageImpl::instance()
     {
 
