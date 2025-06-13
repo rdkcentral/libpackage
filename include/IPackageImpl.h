@@ -34,7 +34,8 @@ namespace packagemanager
     enum Result : uint8_t
     {
         SUCCESS,
-        FAILED
+        FAILED,
+        VERSION_MISMATCH
     };
 
     typedef enum : uint8_t
@@ -76,7 +77,8 @@ namespace packagemanager
     typedef std::pair<std::string, std::string> ConfigMetadataKey;
     typedef std::map<ConfigMetadataKey, ConfigMetaData> ConfigMetadataArray;
 
-    typedef std::vector<std::pair<std::string, std::string> > NameValues;
+    typedef std::pair<std::string, std::string> NameValue;
+    typedef std::vector<NameValue> NameValues;
     class IPackageImpl
     {
     public:
@@ -89,6 +91,8 @@ namespace packagemanager
 
         virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) = 0;
         virtual Result Unlock(const std::string &packageId, const std::string &version) = 0; // XXX: Not in LibPackage-interface doc
+        //Fix for build error
+        virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) { return SUCCESS; }
 
         static std::shared_ptr<packagemanager::IPackageImpl> instance();
     };
