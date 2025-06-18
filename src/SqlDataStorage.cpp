@@ -24,6 +24,8 @@
 #include <string.h>
 #include <sstream>
 #include <cassert>
+#include <memory>
+#include <chrono>
 
 #ifndef SQLITE_FILE_HEADER
 #define SQLITE_FILE_HEADER "SQLite format 3"
@@ -102,7 +104,7 @@ namespace packagemanager
                                         const std::string &id,
                                         const std::string &version)
     {
-        INFO("[SqlDataStorage::IsAppInstalled] ");
+        LOG("[SqlDataStorage::IsAppInstalled] ");
         std::string query = "SELECT idx FROM installed_apps WHERE app_idx IN (SELECT idx FROM apps WHERE (?1 IS NULL OR type = ?1) AND app_id = ?2 AND version = ?3);";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -128,7 +130,6 @@ namespace packagemanager
 
     DataStorage::AppDetails SqlDataStorage::GetAppDetails(const std::string &packageId)
     {
-        INFO(" ");
         std::string query = "SELECT type, app_id, version, name, category, url FROM installed_apps "
                             "INNER JOIN apps ON apps.idx = installed_apps.app_idx "
                             "WHERE app_id = ?1";
@@ -157,7 +158,7 @@ namespace packagemanager
 
     std::string SqlDataStorage::GetTypeOfApp(const std::string &id)
     {
-        INFO(" ");
+
         std::string type{};
         std::string query = "SELECT type FROM apps WHERE app_id ==  $1;";
         sqlite3_stmt *stmt;
@@ -178,7 +179,6 @@ namespace packagemanager
     bool SqlDataStorage::IsAppData(const std::string &type,
                                    const std::string &id)
     {
-        INFO(" ");
         std::string query = "SELECT idx FROM apps WHERE (?1 IS NULL OR type = ?1) AND (?2 IS NULL OR app_id = ?2)";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -267,7 +267,6 @@ namespace packagemanager
                                                          const std::string &id,
                                                          const std::string &version)
     {
-        INFO(" ");
 
         sqlite3_stmt *stmt;
         std::string appDetailsQuery =
@@ -326,7 +325,7 @@ namespace packagemanager
 
     void SqlDataStorage::InitDB()
     {
-        INFO("Initializing database");
+        LOG("Initializing database");
         Terminate();
         OpenConnection();
         Validate();
@@ -336,7 +335,7 @@ namespace packagemanager
 
     void SqlDataStorage::OpenConnection()
     {
-        INFO("Opening database connection: ", db_path);
+        LOG("Opening database connection: ", db_path);
         bool rc = sqlite3_open(db_path.c_str(), &sqlite);
         if (rc)
         {
@@ -347,7 +346,7 @@ namespace packagemanager
 
     void SqlDataStorage::CreateTables() const
     {
-        INFO("Creating LISA tables");
+        LOG("Creating LISA tables");
         ExecuteCommand("CREATE TABLE IF NOT EXISTS apps("
                        "idx INTEGER PRIMARY KEY,"
                        "type TEXT NOT NULL,"
@@ -383,7 +382,7 @@ namespace packagemanager
 
     void SqlDataStorage::EnableForeignKeys() const
     {
-        INFO("Enabling foreign keys");
+        LOG("Enabling foreign keys");
         ExecuteCommand("PRAGMA foreign_keys = ON;");
     }
 
@@ -412,13 +411,13 @@ namespace packagemanager
         }
         catch (SqlDataStorageError &exc)
         {
-            ERROR("error ", exc.what());
+            LOG("error ", exc.what());
             integrityCheckFailed = true;
         }
 
         if (integrityCheckFailed)
         {
-            ERROR("database integrity check failed, dropping tables");
+            LOG("database integrity check failed, dropping tables");
             ExecuteCommand("DROP TABLE apps;");
             ExecuteCommand("DROP TABLE installed_apps;");
             ExecuteCommand("DROP TABLE metadata;");
@@ -427,7 +426,7 @@ namespace packagemanager
 
     std::vector<std::string> SqlDataStorage::GetAppsPaths(const std::string &type, const std::string &id, const std::string &version)
     {
-        INFO(" ");
+
         std::string query = "SELECT app_path FROM installed_apps WHERE app_idx IN (SELECT idx FROM apps WHERE (?1 IS NULL OR type = ?1) AND (?2 IS NULL OR app_id = ?2)) AND (?3 IS NULL OR version = ?3)";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -442,7 +441,6 @@ namespace packagemanager
 
     std::vector<std::string> SqlDataStorage::GetDataPaths(const std::string &type, const std::string &id)
     {
-        INFO(" ");
         std::string query = "SELECT data_path FROM apps WHERE (?1 IS NULL OR type = ?1) AND (?2 IS NULL OR app_id = ?2)";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -456,7 +454,6 @@ namespace packagemanager
 
     std::vector<std::string> SqlDataStorage::GetPaths(sqlite3_stmt *stmt) const
     {
-        INFO(" ");
         std::vector<std::string> paths;
         int rc{};
         while ((rc = sqlite3_step(stmt)) == SQLITE_ROW)
@@ -473,7 +470,6 @@ namespace packagemanager
     std::vector<DataStorage::AppDetails> SqlDataStorage::GetAppDetailsList(const std::string &type, const std::string &id, const std::string &version,
                                                                            const std::string &appName, const std::string &category)
     {
-        INFO(" ");
         std::string query = "SELECT A.type,A.app_id,IA.version,IA.name,IA.category,IA.url FROM installed_apps IA, apps A WHERE (IA.app_idx == A.idx) AND (?1 IS NULL OR A.type = ?1) AND (?2 IS NULL OR app_id = ?2) "
                             "AND (?3 IS NULL OR version = ?3) AND (?4 IS NULL OR name = ?4) AND (?5 IS NULL OR category = ?5);";
         sqlite3_stmt *stmt;
@@ -505,7 +501,7 @@ namespace packagemanager
     std::vector<DataStorage::AppDetails> SqlDataStorage::GetAppDetailsListOuterJoin(const std::string &type, const std::string &id, const std::string &version,
                                                                                     const std::string &appName, const std::string &category)
     {
-        INFO("[SqlDataStorage::GetAppDetailsListOuterJoin] Enter");
+        LOG("[SqlDataStorage::GetAppDetailsListOuterJoin] Enter");
         std::string query = "SELECT type, app_id, version, name, category, url FROM apps LEFT OUTER JOIN installed_apps ON installed_apps.app_idx = apps.idx WHERE (?1 IS NULL OR type = ?1) AND (?2 IS NULL OR app_id = ?2) "
                             "AND (?3 IS NULL OR version = ?3) AND (?4 IS NULL OR name = ?4) AND (?5 IS NULL OR category = ?5);";
         sqlite3_stmt *stmt;
@@ -537,7 +533,6 @@ namespace packagemanager
                                         const std::string &appPath,
                                         const std::string &timeCreated)
     {
-        INFO(" ");
         std::string query = "INSERT INTO apps VALUES(NULL, $1, $2, $3, $4);";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -553,7 +548,7 @@ namespace packagemanager
     int SqlDataStorage::GetAppIdx(const std::string &type,
                                   const std::string &id)
     {
-        INFO(" ");
+
         int appIdx{INVALID_INDEX};
         std::string query = "SELECT idx FROM apps WHERE type == $1 AND app_id ==  $2;";
         sqlite3_stmt *stmt;
@@ -579,7 +574,7 @@ namespace packagemanager
                                                  const std::string &appPath,
                                                  const std::string &timeCreated)
     {
-        INFO(" ");
+
         assert(appIdx != INVALID_INDEX);
         std::string query = "INSERT INTO installed_apps VALUES(NULL, $1, $2, $3, $4, $5, $6, $7, NULL, NULL);";
         sqlite3_stmt *stmt;
@@ -600,7 +595,7 @@ namespace packagemanager
                                                  const std::string &id,
                                                  const std::string &version)
     {
-        INFO(" ");
+
         auto appIdx = GetAppIdx(type, id);
 
         std::string query = "DELETE FROM installed_apps WHERE app_idx == $1 AND version == $2;";
@@ -616,7 +611,7 @@ namespace packagemanager
     void SqlDataStorage::DeleteFromApps(const std::string &type,
                                         const std::string &id)
     {
-        INFO(" ");
+
         std::string query = "DELETE FROM apps WHERE type == $1 AND app_id == $2;";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -629,7 +624,7 @@ namespace packagemanager
 
     void SqlDataStorage::ExecuteSqlStep(sqlite3_stmt *stmt)
     {
-        INFO(" ");
+
         if (sqlite3_step(stmt) != SQLITE_DONE)
         {
             sqlite3_finalize(stmt);

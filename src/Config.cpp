@@ -52,8 +52,6 @@ namespace packagemanager
 
     Config::Config(const std::string &aConfig)
     {
-        INFO(" ");
-
         std::stringstream ss{aConfig};
         boost::property_tree::ptree pt;
 
@@ -72,55 +70,55 @@ namespace packagemanager
                     assureEndsWithSlash(appsPath);
                     appsTmpPath = appsPath + "tmp/";
 
-                    INFO("appsPath ", appsPath);
-                    INFO("appsTmpPath ", appsTmpPath);
+                    LOG("appsPath ", appsPath);
+                    LOG("appsTmpPath ", appsTmpPath);
                 }
                 else if (it->first == DB_PATH_KEY_NAME)
                 {
                     databasePath = it->second.get_value<std::string>();
                     assureEndsWithSlash(databasePath);
-                    INFO("databasePath ", databasePath);
+                    LOG("databasePath ", databasePath);
                 }
                 else if (it->first == DATA_PATH_KEY_NAME)
                 {
                     appsStoragePath = it->second.get_value<std::string>();
                     assureEndsWithSlash(appsStoragePath);
-                    INFO("appsStoragePath ", appsStoragePath);
+                    LOG("appsStoragePath ", appsStoragePath);
                 }
                 else if (it->first == ANNOTATIONS_FILE_KEY_NAME)
                 {
                     annotationsFile = it->second.get_value<std::string>();
-                    INFO("annotationsFile ", annotationsFile);
+                    LOG("annotationsFile ", annotationsFile);
                 }
                 else if (it->first == ANNOTATIONS_REGEX_KEY_NAME)
                 {
                     annotationsRegex = it->second.get_value<std::string>();
-                    INFO("annotationsRegex ", annotationsRegex);
+                    LOG("annotationsRegex ", annotationsRegex);
                 }
                 else if (it->first == DOWNLOAD_RETRY_AFTER_SECS_KEY_NAME)
                 {
                     downloadRetryAfterSeconds = it->second.get_value<unsigned int>();
-                    INFO("downloadRetryAfterSeconds ", downloadRetryAfterSeconds);
+                    LOG("downloadRetryAfterSeconds ", downloadRetryAfterSeconds);
                 }
                 else if (it->first == DOWNLOAD_RETRY_MAX_TIMES_KEY_NAME)
                 {
                     downloadRetryMaxTimes = it->second.get_value<unsigned int>();
-                    INFO("downloadRetryMaxTimes ", downloadRetryMaxTimes);
+                    LOG("downloadRetryMaxTimes ", downloadRetryMaxTimes);
                 }
                 else if (it->first == DOWNLOAD_TIMEOUT_SECS_KEY_NAME)
                 {
                     downloadTimeoutSeconds = it->second.get_value<unsigned int>();
-                    INFO("downloadTimeoutSeconds ", downloadTimeoutSeconds);
+                    LOG("downloadTimeoutSeconds ", downloadTimeoutSeconds);
                 }
                 else if (it->first == DACBUNDLEPLATFORMNAMEOVERRIDE_KEY_NAME)
                 {
                     dacBundlePlatformNameOverride = it->second.get_value<std::string>();
-                    INFO("dacBundlePlatformNameOverride ", dacBundlePlatformNameOverride);
+                    LOG("dacBundlePlatformNameOverride ", dacBundlePlatformNameOverride);
                 }
                 else if (it->first == DACBUNDLEFIRMWARECOMPATIBILITYKEY_KEY_NAME)
                 {
                     dacBundleFirmwareCompatibilityKey = it->second.get_value<std::string>();
-                    INFO("dacBundleFirmwareCompatibilityKey ", dacBundleFirmwareCompatibilityKey);
+                    LOG("dacBundleFirmwareCompatibilityKey ", dacBundleFirmwareCompatibilityKey);
                 }
                 else if (it->first == CONFIG_URL_KEY_NAME)
                 {
@@ -130,7 +128,7 @@ namespace packagemanager
         }
         catch (std::exception &exc)
         {
-            ERROR("parsing config exception: ", exc.what());
+            LOG("parsing config exception: ", exc.what());
         }
     }
 

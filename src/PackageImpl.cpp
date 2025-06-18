@@ -42,7 +42,7 @@ namespace packagemanager
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        INFO("PackageImpl initialized, Status : ", result);
+        LOG("PackageImpl initialized, Status : ", result);
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
@@ -54,6 +54,8 @@ namespace packagemanager
         getKeyValue(additionalMetadata, "category", category);
         getKeyValue(additionalMetadata, "appName", appName);
 
+        LOG("PackageImpl Install, Status : type ", type, " category ", category, " appName ", appName);
+
         uint32_t result = executor.Install(type, packageId, version, fileLocator, appName, category);
         // The executor will handle the installation process, so we return SUCCESS here
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
@@ -64,27 +66,27 @@ namespace packagemanager
         std::string uninstallType = "full"; // Assuming full uninstall
         std::string handle;
         DataStorage::AppDetails appDetails;
-        INFO("Retrieving app details for packageId: ", packageId);
+        LOG("Retrieving app details for packageId: ", packageId);
         executor.GetAppDetails(packageId, appDetails);
-        // INFO("Uninstalling app: {", appDetails.type,", ", appDetails.version, ", ", appDetails.appName, "}");
+        // LOG("Uninstalling app: {", appDetails.type,", ", appDetails.version, ", ", appDetails.appName, "}");
         uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType, handle);
-        INFO("Uninstall handle: ", handle);
+        LOG("Uninstall handle: ", handle);
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
     Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata)
     {
         DataStorage::AppDetails appDetails;
-        INFO("Retrieving app details for packageId: ", packageId);
+        LOG("Retrieving app details for packageId: ", packageId);
         if (!executor.GetAppDetails(packageId, appDetails) == Executor::ReturnCodes::ERROR_NONE)
         {
-            ERROR("Failed to retrieve app details for packageId: ", packageId);
+            LOG("Failed to retrieve app details for packageId: ", packageId);
             return FAILED;
         }
-        INFO("Locking app: {", appDetails.type, ", ", appDetails.version, ", ", appDetails.appName, "}");
+        LOG("Locking app: {", appDetails.type, ", ", appDetails.version, ", ", appDetails.appName, "}");
         auto result = executor.Lock(appDetails.type, packageId, appDetails.version, unpackedPath);
         // The executor will handle the locking process, so we return SUCCESS here
-        INFO("Package ", packageId, " version ", appDetails.version, " locked successfully.", " Handle: ", unpackedPath);
+        LOG("Package ", packageId, " version ", appDetails.version, " locked successfully.", " unpacked at: ", unpackedPath);
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
