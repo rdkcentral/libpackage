@@ -36,9 +36,6 @@ namespace packagemanager
         const std::string DATA_PATH_KEY_NAME{"datapath"};
         const std::string ANNOTATIONS_FILE_KEY_NAME{"annotationsFile"};
         const std::string ANNOTATIONS_REGEX_KEY_NAME{"annotationsRegex"};
-        const std::string DOWNLOAD_RETRY_AFTER_SECS_KEY_NAME{"downloadRetryAfterSeconds"};
-        const std::string DOWNLOAD_RETRY_MAX_TIMES_KEY_NAME{"downloadRetryMaxTimes"};
-        const std::string DOWNLOAD_TIMEOUT_SECS_KEY_NAME{"downloadTimeoutSeconds"};
 
         void assureEndsWithSlash(std::string &str)
         {
@@ -95,21 +92,6 @@ namespace packagemanager
                     annotationsRegex = it->second.get_value<std::string>();
                     LOG("annotationsRegex ", annotationsRegex);
                 }
-                else if (it->first == DOWNLOAD_RETRY_AFTER_SECS_KEY_NAME)
-                {
-                    downloadRetryAfterSeconds = it->second.get_value<unsigned int>();
-                    LOG("downloadRetryAfterSeconds ", downloadRetryAfterSeconds);
-                }
-                else if (it->first == DOWNLOAD_RETRY_MAX_TIMES_KEY_NAME)
-                {
-                    downloadRetryMaxTimes = it->second.get_value<unsigned int>();
-                    LOG("downloadRetryMaxTimes ", downloadRetryMaxTimes);
-                }
-                else if (it->first == DOWNLOAD_TIMEOUT_SECS_KEY_NAME)
-                {
-                    downloadTimeoutSeconds = it->second.get_value<unsigned int>();
-                    LOG("downloadTimeoutSeconds ", downloadTimeoutSeconds);
-                }
                 else if (it->first == DACBUNDLEPLATFORMNAMEOVERRIDE_KEY_NAME)
                 {
                     dacBundlePlatformNameOverride = it->second.get_value<std::string>();
@@ -162,20 +144,7 @@ namespace packagemanager
         return annotationsRegex;
     }
 
-    unsigned int Config::getDownloadRetryAfterSeconds() const
-    {
-        return downloadRetryAfterSeconds;
-    }
-
-    unsigned int Config::getDownloadRetryMaxTimes() const
-    {
-        return downloadRetryMaxTimes;
-    }
-
-    unsigned int Config::getDownloadTimeoutSeconds() const
-    {
-        return downloadTimeoutSeconds;
-    }
+    
 
     const std::string &Config::getDacBundlePlatformNameOverride() const
     {
@@ -198,9 +167,6 @@ namespace packagemanager
                    << config.appsStoragePath
                    << " annotationsFile: " << config.annotationsFile
                    << " annotationsRegex: " << config.annotationsRegex
-                   << " downloadRetryAfterSeconds: " << config.downloadRetryAfterSeconds
-                   << " downloadRetryMaxTimes: " << config.downloadRetryMaxTimes
-                   << " downloadTimeoutSeconds: " << config.downloadTimeoutSeconds
                    << " dacBundlePlatformNameOverride: " << config.dacBundlePlatformNameOverride
                    << " dacBundleFirmwareCompatibilityKey: " << config.dacBundleFirmwareCompatibilityKey
                    << " configUrl: " << config.configUrl

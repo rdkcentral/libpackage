@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     std::shared_ptr<packagemanager::IPackageImpl> packageImpl = packagemanager::IPackageImpl::instance();
     std::string packageList;
     packagemanager::ConfigMetadataArray configMetadataArray;
-    std::string configString = R"({"appspath":"/opt/dac_apps/apps","dbpath":"/opt/dac_apps","datapath":"/opt/dac_apps/data","annotationsFile":"config.json","annotationsRegex":"public\\.*","downloadRetryAfterSeconds":30,"downloadRetryMaxTimes":4,"downloadTimeoutSeconds":900})";
+    std::string configString = R"({"appspath":"/opt/dac_apps/apps","dbpath":"/opt/dac_apps","datapath":"/opt/dac_apps/data","annotationsFile":"config.json","annotationsRegex":"public\\.*"})";
     if (packageImpl->Initialize(configString, configMetadataArray) != packagemanager::SUCCESS)
     {
         std::cout << "Failed to initialize package manager." << std::endl;
