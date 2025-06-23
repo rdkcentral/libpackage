@@ -42,7 +42,43 @@ namespace packagemanager
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        INFO("PackageImpl initialized, Status : ", result);
+        INFO("PackageImpl  initialized, Status : ", result);
+        std::vector<DataStorage::AppDetails> appsDetailsList;
+        const std::string type = "";
+        const std::string id = "";
+        const std::string version = "";
+        const std::string appName = "";
+        const std::string category = "";
+
+        result = executor.GetAppDetailsList(type, id, version, appName, category, appsDetailsList);
+        if (result != Executor::ReturnCodes::ERROR_NONE)
+        {
+            ERROR("Failed to retrieve app details list, Status : ", result);
+            return FAILED;
+        }
+        INFO("[PackageImpl::Initialize] Retrieved ", appsDetailsList.size(), " apps.");
+        for (auto details : appsDetailsList)
+        {
+            ConfigMetaData configMetaData;
+            std::string configPath;
+            executor.GetAppConfigPath(details.id, details.version, configPath);
+            INFO(details.appName, " configuration : ", configPath);
+
+            if (populateConfigValues(configPath, configMetaData))
+            {
+                configMetaData.appType = INTERACTIVE;
+                configMetaData.wanLanAccess = true;
+                configMetaData.thunder = true;
+                configMetaData.appPath = "/"; // Assuming this is referring to CWD
+                ConfigMetadataKey app = {details.id, details.version};
+                configMetadata[app] = configMetaData;
+                INFO("Config metadata populated for app: ", details.appName);
+            }
+            else
+            {
+                ERROR("Failed to populate config metadata for app: ", details.appName);
+            }
+        }
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
@@ -54,6 +90,8 @@ namespace packagemanager
         getKeyValue(additionalMetadata, "category", category);
         getKeyValue(additionalMetadata, "appName", appName);
 
+        INFO("PackageImpl Install, Status : type ", type, " category ", category, " appName ", appName);
+
         uint32_t result = executor.Install(type, packageId, version, fileLocator, appName, category);
         // The executor will handle the installation process, so we return SUCCESS here
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
@@ -62,37 +100,11 @@ namespace packagemanager
     Result PackageImpl::Uninstall(const std::string &packageId)
     {
         std::string uninstallType = "full"; // Assuming full uninstall
-        std::string handle;
         DataStorage::AppDetails appDetails;
         INFO("Retrieving app details for packageId: ", packageId);
         executor.GetAppDetails(packageId, appDetails);
-        // INFO("Uninstalling app: {", appDetails.type,", ", appDetails.version, ", ", appDetails.appName, "}");
-        uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType, handle);
-        INFO("Uninstall handle: ", handle);
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
-    }
 
-    Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata)
-    {
-        DataStorage::AppDetails appDetails;
-        INFO("Retrieving app details for packageId: ", packageId);
-        if (!executor.GetAppDetails(packageId, appDetails) == Executor::ReturnCodes::ERROR_NONE)
-        {
-            ERROR("Failed to retrieve app details for packageId: ", packageId);
-            return FAILED;
-        }
-        INFO("Locking app: {", appDetails.type, ", ", appDetails.version, ", ", appDetails.appName, "}");
-        auto result = executor.Lock(appDetails.type, packageId, appDetails.version, unpackedPath);
-        // The executor will handle the locking process, so we return SUCCESS here
-        INFO("Package ", packageId, " version ", appDetails.version, " locked successfully.", " Handle: ", unpackedPath);
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
-    }
-
-    Result PackageImpl::Unlock(const std::string &packageId, const std::string &version)
-    {
-        std::string handle;
-        auto result = executor.Unlock(packageId, version);
-        // The executor will handle the unlocking process, so we return SUCCESS here
+        uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
@@ -103,5 +115,38 @@ namespace packagemanager
             std::make_shared<packagemanager::PackageImpl>();
 
         return packageImpl;
+    }
+    bool PackageImpl::populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/)
+    {
+        DEBUG("Populating config values from: ", configjsonfile);
+        try
+        {
+            boost::property_tree::ptree pt;
+            boost::property_tree::read_json(configjsonfile, pt);
+
+            boost::property_tree::ptree envObject = pt.get_child("process.env", boost::property_tree::ptree());
+            std::vector<std::string> envVars;
+            for (const auto &item : envObject)
+            {
+                DEBUG("Adding environment variable: ", item.second.data());
+                envVars.push_back(item.second.data());
+            }
+            configMetadata.envVars = envVars;
+            envObject = pt.get_child("process.args", boost::property_tree::ptree());
+            std::string launchCommand;
+            for (const auto &item : envObject)
+            {
+                launchCommand += item.second.data() + " ";
+            }
+            DEBUG(" Adding launch command: ", launchCommand);
+            configMetadata.command = launchCommand;
+
+            return true;
+        }
+        catch (const std::exception &e)
+        {
+            ERROR("Error populating config values: ", e.what());
+            return false;
+        }
     }
 }

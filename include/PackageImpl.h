@@ -33,14 +33,11 @@ namespace packagemanager
         Result Initialize(const std::string &configStr, ConfigMetadataArray &configMetadata) override;
 
         Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
-
-        Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) override;
-        Result Unlock(const std::string &packageId, const std::string &version) override;
-
         Result Uninstall(const std::string &packageId) override;
 
     private:
         packagemanager::Executor executor;
+        bool populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/);
     };
 
 }
