@@ -42,7 +42,43 @@ namespace packagemanager
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        LOG("PackageImpl initialized, Status : ", result);
+        LOG("PackageImpl  initialized, Status : ", result);
+        std::vector<DataStorage::AppDetails> appsDetailsList;
+        const std::string type = "";
+        const std::string id = "";
+        const std::string version = "";
+        const std::string appName = "";
+        const std::string category = "";
+
+        result = executor.GetAppDetailsList(type, id, version, appName, category, appsDetailsList);
+        if (result != Executor::ReturnCodes::ERROR_NONE)
+        {
+            LOG("Failed to retrieve app details list, Status : ", result);
+            return FAILED;
+        }
+        LOG("Retrieved ", appsDetailsList.size(), " apps.");
+        for (auto details : appsDetailsList)
+        {
+            ConfigMetaData configMetaData;
+            std::string configPath;
+            executor.GetAppConfigPath(details.id, details.version, configPath);
+            LOG(details.appName, " is  installed at: ", configPath);
+
+            if (populateConfigValues(configPath, configMetaData))
+            {
+                configMetaData.appType = INTERACTIVE;
+                configMetaData.wanLanAccess = true;
+                configMetaData.thunder = true;
+                configMetaData.appPath = "/"; //Assuming this is referring to CWD
+                ConfigMetadataKey app = {details.id, details.version};
+                configMetadata[app] = configMetaData;
+                LOG("Config metadata populated for app: ", details.appName);
+            }
+            else
+            {
+                LOG("Failed to populate config metadata for app: ", details.appName);
+            }
+        }
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
@@ -105,5 +141,39 @@ namespace packagemanager
             std::make_shared<packagemanager::PackageImpl>();
 
         return packageImpl;
+    }
+    bool PackageImpl::populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/)
+    {
+        LOG("Populating config values from: ", configjsonfile);
+        try
+        {
+            boost::property_tree::ptree pt;
+            boost::property_tree::read_json(configjsonfile, pt);
+
+            boost::property_tree::ptree envObject = pt.get_child("process.env", boost::property_tree::ptree());
+            std::vector<std::string> envVars;
+            for (const auto &item : envObject)
+            {
+                LOG("Adding environment variable: ", item.second.data());
+                envVars.push_back(item.second.data());
+
+            }
+            configMetadata.envVars = envVars;
+            envObject = pt.get_child("process.args", boost::property_tree::ptree());
+            std::string launchCommand;
+            for (const auto &item : envObject)
+            {
+                launchCommand += item.second.data() + " ";
+            }
+            LOG(" Adding launch command: ", launchCommand);
+            configMetadata.command = launchCommand;
+
+            return true;
+        }
+        catch (const std::exception &e)
+        {
+            LOG("Error populating config values: ", e.what());
+            return false;
+        }
     }
 }

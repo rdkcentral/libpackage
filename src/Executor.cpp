@@ -428,6 +428,7 @@ namespace packagemanager
                                          const std::string &category,
                                          std::vector<DataStorage::AppDetails> &appsDetailsList) const
     {
+        LOG("Executor::GetAppDetailsList for ", id, "version ", version);
         try
         {
             appsDetailsList = dataBase->GetAppDetailsListOuterJoin(type, id, version, appName, category);
@@ -702,7 +703,31 @@ namespace packagemanager
 
         LOG("[Executor::doUninstall] finished");
     }
+    uint32_t Executor::GetAppConfigPath(const std::string &id,
+                                 const std::string &version, std::string &appPath) const
+    {
+        LOG("GetAppConfigPath id=", id, " version=", version);
+        if (id.empty() || version.empty())
+        {
+            LOG("GetAppConfigPath: id or version is empty");
+            return ERROR_WRONG_PARAMS;
+        }
+        std::vector<std::string> path = dataBase->GetAppsPaths("", id, version);
 
+        if (!path.empty())
+        {
+            appPath =  config.getAppsPath() + path[0];
+            appPath += '/';
+            appPath += config.getAnnotationsFile();
+            LOG("GetAppConfigPath: appPath=", appPath);
+        }
+        else
+        {
+            LOG("GetAppConfigPath: No app path found for id=", id, " version=", version);
+            return ERROR_WRONG_PARAMS;
+        }
+        return ERROR_NONE;
+    }
     void Executor::doMaintenance()
     {
         try

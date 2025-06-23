@@ -149,6 +149,9 @@ namespace packagemanager
                                    const std::string &category,
                                    std::vector<DataStorage::AppDetails> &appsDetailsList) const;
 
+        uint32_t GetAppConfigPath(const std::string &id,
+                                   const std::string &version, std::string &appPath) const;
+
         uint32_t GetAppDetails(
             const std::string &id,
             DataStorage::AppDetails &appsDetailsList) const;

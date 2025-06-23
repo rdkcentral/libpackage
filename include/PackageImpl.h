@@ -41,6 +41,7 @@ namespace packagemanager
 
     private:
         packagemanager::Executor executor;
+        bool populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/);
     };
 
 }
