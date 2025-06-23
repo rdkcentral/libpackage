@@ -69,7 +69,7 @@ namespace packagemanager
                 configMetaData.appType = INTERACTIVE;
                 configMetaData.wanLanAccess = true;
                 configMetaData.thunder = true;
-                configMetaData.appPath = "/"; //Assuming this is referring to CWD
+                configMetaData.appPath = "/"; // Assuming this is referring to CWD
                 ConfigMetadataKey app = {details.id, details.version};
                 configMetadata[app] = configMetaData;
                 LOG("Config metadata populated for app: ", details.appName);
@@ -110,30 +110,6 @@ namespace packagemanager
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
-    Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata)
-    {
-        DataStorage::AppDetails appDetails;
-        LOG("Retrieving app details for packageId: ", packageId);
-        if (!executor.GetAppDetails(packageId, appDetails) == Executor::ReturnCodes::ERROR_NONE)
-        {
-            LOG("Failed to retrieve app details for packageId: ", packageId);
-            return FAILED;
-        }
-        LOG("Locking app: {", appDetails.type, ", ", appDetails.version, ", ", appDetails.appName, "}");
-        auto result = executor.Lock(appDetails.type, packageId, appDetails.version, unpackedPath);
-        // The executor will handle the locking process, so we return SUCCESS here
-        LOG("Package ", packageId, " version ", appDetails.version, " locked successfully.", " unpacked at: ", unpackedPath);
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
-    }
-
-    Result PackageImpl::Unlock(const std::string &packageId, const std::string &version)
-    {
-        std::string handle;
-        auto result = executor.Unlock(packageId, version);
-        // The executor will handle the unlocking process, so we return SUCCESS here
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
-    }
-
     std::shared_ptr<packagemanager::IPackageImpl> IPackageImpl::instance()
     {
 
@@ -156,7 +132,6 @@ namespace packagemanager
             {
                 LOG("Adding environment variable: ", item.second.data());
                 envVars.push_back(item.second.data());
-
             }
             configMetadata.envVars = envVars;
             envObject = pt.get_child("process.args", boost::property_tree::ptree());
