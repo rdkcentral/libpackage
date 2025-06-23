@@ -75,7 +75,7 @@ namespace packagemanager
         bool createDirectory(const std::string &path)
         {
             bool result{false};
-            LOG("creating directory ", path);
+            DEBUG("creating directory ", path);
             try
             {
                 result = boost::filesystem::create_directories(path);
@@ -92,7 +92,7 @@ namespace packagemanager
         bool createDirectory(const std::string &path, int gid, bool writeable)
         {
             bool result{false};
-            LOG("creating directory ", path);
+            DEBUG("creating directory ", path);
             try
             {
                 boost::filesystem::path fullpath(path);
@@ -103,7 +103,7 @@ namespace packagemanager
                     subpath /= (*it);
                     if (!boost::filesystem::exists(subpath))
                     {
-                        LOG("creating subdir ", subpath);
+                        DEBUG("creating subdir ", subpath);
                         result = boost::filesystem::create_directory(subpath);
                         if (gid >= 0)
                         {
@@ -140,7 +140,7 @@ namespace packagemanager
 
             dirExists = createDirectory(path);
 
-            LOG("path ", path, " existing dir: ", dirToRemove);
+            DEBUG("path ", path, " existing dir: ", dirToRemove);
         }
 
         ScopedDir::~ScopedDir()
@@ -163,7 +163,7 @@ namespace packagemanager
 
         void removeDirectory(const std::string &path)
         {
-            LOG("removing directory ", path);
+            DEBUG("removing directory ", path);
 
             try
             {
@@ -178,7 +178,7 @@ namespace packagemanager
 
         void removeAllDirectoriesExcept(const std::string &path, const std::string &except)
         {
-            LOG("removing directories ", path, " except ", except);
+            DEBUG("removing directories ", path, " except ", except);
 
             try
             {
@@ -200,7 +200,7 @@ namespace packagemanager
 
         std::vector<std::string> getSubdirectories(const std::string &path)
         {
-            LOG("path: ", path);
+            DEBUG("path: ", path);
 
             std::vector<std::string> result;
             try
@@ -227,7 +227,7 @@ namespace packagemanager
         {
             if (chown(path.c_str(), uid, gid))
             {
-                LOG("Could not change owner of ", path);
+                ERROR("Could not change owner of ", path);
             }
 
             try
@@ -242,18 +242,17 @@ namespace packagemanager
                 {
                     perms |= boost::filesystem::group_write;
                 }
-                // LOG("Changing permissions for ", path);
                 boost::filesystem::permissions(path, perms);
             }
             catch (boost::filesystem::filesystem_error &error)
             {
-                LOG("Could not set permissions on ", path, " error: ", error.what());
+                ERROR("Could not set permissions on ", path, " error: ", error.what());
             }
         }
 
         void setPermissionsRecursively(const std::string &path, int gid, bool writeable)
         {
-            LOG("setPermissionsRecursively: ", path, " ", gid);
+            DEBUG("setPermissionsRecursively: ", path, " ", gid);
 
             int uid = getuid();
             setPermission(path, uid, gid, true, writeable);
@@ -275,7 +274,7 @@ namespace packagemanager
 
         bool isEmpty(const std::string &path)
         {
-            LOG("path: ", path);
+            DEBUG("path: ", path);
 
             auto result{false};
             try

@@ -21,12 +21,40 @@
 #include <iostream>
 namespace packagemanager
 {
+    enum LOG_LEVEL
+    {
+        LOG_LEVEL_ERROR = 0,
+        LOG_LEVEL_WARNING,
+        LOG_LEVEL_INFO,
+        LOG_LEVEL_DEBUG
+    };
 
     template <typename... Args>
-    void log(Args &&...args)
+    void log(LOG_LEVEL logLevel, Args &&...args)
     {
-        std::cout << "[Libpackage] ";
-        (std::cout << ... << args) << std::endl; // C++17 fold expression
+        // By default error and warning messages are printed
+        if (logLevel == LOG_LEVEL_DEBUG)
+        {
+#ifndef DEBUG_ENABLED
+            return; //Enable only if debugging is enabled
+#endif
+        }
+        if (logLevel == LOG_LEVEL_ERROR || logLevel == LOG_LEVEL_WARNING)
+        {
+            //Sent it to error output
+            std::cerr << "[Libpackage] ";
+            (std::cerr << ... << args) << std::endl; // C++17 fold expression
+        }
+        else
+        {
+
+            std::cout << "[Libpackage] ";
+            (std::cout << ... << args) << std::endl; // C++17 fold expression
+        }
     }
-#define LOG(...) log(__VA_ARGS__)
+#define DEBUG(...) log(LOG_LEVEL_DEBUG, __VA_ARGS__)
+#define INFO(...) log(LOG_LEVEL_INFO, __VA_ARGS__)
+#define WARNING(...) log(LOG_LEVEL_WARNING, __VA_ARGS__)
+#define ERROR(...) log(LOG_LEVEL_ERROR, __VA_ARGS__)
+//#define LOG(...) log(LOG_LEVEL_INFO, __VA_ARGS__)
 }

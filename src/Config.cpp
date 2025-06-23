@@ -67,40 +67,40 @@ namespace packagemanager
                     assureEndsWithSlash(appsPath);
                     appsTmpPath = appsPath + "tmp/";
 
-                    LOG("appsPath ", appsPath);
-                    LOG("appsTmpPath ", appsTmpPath);
+                    DEBUG("appsPath ", appsPath);
+                    DEBUG("appsTmpPath ", appsTmpPath);
                 }
                 else if (it->first == DB_PATH_KEY_NAME)
                 {
                     databasePath = it->second.get_value<std::string>();
                     assureEndsWithSlash(databasePath);
-                    LOG("databasePath ", databasePath);
+                    DEBUG("databasePath ", databasePath);
                 }
                 else if (it->first == DATA_PATH_KEY_NAME)
                 {
                     appsStoragePath = it->second.get_value<std::string>();
                     assureEndsWithSlash(appsStoragePath);
-                    LOG("appsStoragePath ", appsStoragePath);
+                    DEBUG("appsStoragePath ", appsStoragePath);
                 }
                 else if (it->first == ANNOTATIONS_FILE_KEY_NAME)
                 {
                     annotationsFile = it->second.get_value<std::string>();
-                    LOG("annotationsFile ", annotationsFile);
+                    DEBUG("annotationsFile ", annotationsFile);
                 }
                 else if (it->first == ANNOTATIONS_REGEX_KEY_NAME)
                 {
                     annotationsRegex = it->second.get_value<std::string>();
-                    LOG("annotationsRegex ", annotationsRegex);
+                    DEBUG("annotationsRegex ", annotationsRegex);
                 }
                 else if (it->first == DACBUNDLEPLATFORMNAMEOVERRIDE_KEY_NAME)
                 {
                     dacBundlePlatformNameOverride = it->second.get_value<std::string>();
-                    LOG("dacBundlePlatformNameOverride ", dacBundlePlatformNameOverride);
+                    DEBUG("dacBundlePlatformNameOverride ", dacBundlePlatformNameOverride);
                 }
                 else if (it->first == DACBUNDLEFIRMWARECOMPATIBILITYKEY_KEY_NAME)
                 {
                     dacBundleFirmwareCompatibilityKey = it->second.get_value<std::string>();
-                    LOG("dacBundleFirmwareCompatibilityKey ", dacBundleFirmwareCompatibilityKey);
+                    DEBUG("dacBundleFirmwareCompatibilityKey ", dacBundleFirmwareCompatibilityKey);
                 }
                 else if (it->first == CONFIG_URL_KEY_NAME)
                 {
@@ -110,7 +110,7 @@ namespace packagemanager
         }
         catch (std::exception &exc)
         {
-            LOG("parsing config exception: ", exc.what());
+            ERROR("parsing config exception: ", exc.what());
         }
     }
 

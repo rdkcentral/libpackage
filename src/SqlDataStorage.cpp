@@ -104,7 +104,7 @@ namespace packagemanager
                                         const std::string &id,
                                         const std::string &version)
     {
-        LOG("[SqlDataStorage::IsAppInstalled] ");
+        DEBUG("[SqlDataStorage::IsAppInstalled] ");
         std::string query = "SELECT idx FROM installed_apps WHERE app_idx IN (SELECT idx FROM apps WHERE (?1 IS NULL OR type = ?1) AND app_id = ?2 AND version = ?3);";
         sqlite3_stmt *stmt;
         sqlite3_prepare_v2(sqlite, query.c_str(), query.length(), &stmt, nullptr);
@@ -325,7 +325,7 @@ namespace packagemanager
 
     void SqlDataStorage::InitDB()
     {
-        LOG("Initializing database");
+        DEBUG("Initializing database");
         Terminate();
         OpenConnection();
         Validate();
@@ -335,7 +335,7 @@ namespace packagemanager
 
     void SqlDataStorage::OpenConnection()
     {
-        LOG("Opening database connection: ", db_path);
+        DEBUG("Opening database connection: ", db_path);
         bool rc = sqlite3_open(db_path.c_str(), &sqlite);
         if (rc)
         {
@@ -346,7 +346,7 @@ namespace packagemanager
 
     void SqlDataStorage::CreateTables() const
     {
-        LOG("Creating LISA tables");
+        DEBUG("Creating LISA tables");
         ExecuteCommand("CREATE TABLE IF NOT EXISTS apps("
                        "idx INTEGER PRIMARY KEY,"
                        "type TEXT NOT NULL,"
@@ -382,7 +382,7 @@ namespace packagemanager
 
     void SqlDataStorage::EnableForeignKeys() const
     {
-        LOG("Enabling foreign keys");
+        DEBUG("Enabling foreign keys");
         ExecuteCommand("PRAGMA foreign_keys = ON;");
     }
 
@@ -411,13 +411,13 @@ namespace packagemanager
         }
         catch (SqlDataStorageError &exc)
         {
-            LOG("error ", exc.what());
+            ERROR("error ", exc.what());
             integrityCheckFailed = true;
         }
 
         if (integrityCheckFailed)
         {
-            LOG("database integrity check failed, dropping tables");
+            ERROR("database integrity check failed, dropping tables");
             ExecuteCommand("DROP TABLE apps;");
             ExecuteCommand("DROP TABLE installed_apps;");
             ExecuteCommand("DROP TABLE metadata;");
@@ -501,7 +501,7 @@ namespace packagemanager
     std::vector<DataStorage::AppDetails> SqlDataStorage::GetAppDetailsListOuterJoin(const std::string &type, const std::string &id, const std::string &version,
                                                                                     const std::string &appName, const std::string &category)
     {
-        LOG("[SqlDataStorage::GetAppDetailsListOuterJoin] Enter");
+        DEBUG("[SqlDataStorage::GetAppDetailsListOuterJoin] Enter");
         std::string query = "SELECT type, app_id, version, name, category, url FROM apps LEFT OUTER JOIN installed_apps ON installed_apps.app_idx = apps.idx WHERE (?1 IS NULL OR type = ?1) AND (?2 IS NULL OR app_id = ?2) "
                             "AND (?3 IS NULL OR version = ?3) AND (?4 IS NULL OR name = ?4) AND (?5 IS NULL OR category = ?5);";
         sqlite3_stmt *stmt;

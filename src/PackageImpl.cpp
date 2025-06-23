@@ -42,7 +42,7 @@ namespace packagemanager
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        LOG("PackageImpl  initialized, Status : ", result);
+        INFO("PackageImpl  initialized, Status : ", result);
         std::vector<DataStorage::AppDetails> appsDetailsList;
         const std::string type = "";
         const std::string id = "";
@@ -53,16 +53,16 @@ namespace packagemanager
         result = executor.GetAppDetailsList(type, id, version, appName, category, appsDetailsList);
         if (result != Executor::ReturnCodes::ERROR_NONE)
         {
-            LOG("Failed to retrieve app details list, Status : ", result);
+            ERROR("Failed to retrieve app details list, Status : ", result);
             return FAILED;
         }
-        LOG("Retrieved ", appsDetailsList.size(), " apps.");
+        INFO("[PackageImpl::Initialize] Retrieved ", appsDetailsList.size(), " apps.");
         for (auto details : appsDetailsList)
         {
             ConfigMetaData configMetaData;
             std::string configPath;
             executor.GetAppConfigPath(details.id, details.version, configPath);
-            LOG(details.appName, " is  installed at: ", configPath);
+            INFO(details.appName, " configuration : ", configPath);
 
             if (populateConfigValues(configPath, configMetaData))
             {
@@ -72,11 +72,11 @@ namespace packagemanager
                 configMetaData.appPath = "/"; // Assuming this is referring to CWD
                 ConfigMetadataKey app = {details.id, details.version};
                 configMetadata[app] = configMetaData;
-                LOG("Config metadata populated for app: ", details.appName);
+                INFO("Config metadata populated for app: ", details.appName);
             }
             else
             {
-                LOG("Failed to populate config metadata for app: ", details.appName);
+                ERROR("Failed to populate config metadata for app: ", details.appName);
             }
         }
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
@@ -90,7 +90,7 @@ namespace packagemanager
         getKeyValue(additionalMetadata, "category", category);
         getKeyValue(additionalMetadata, "appName", appName);
 
-        LOG("PackageImpl Install, Status : type ", type, " category ", category, " appName ", appName);
+        INFO("PackageImpl Install, Status : type ", type, " category ", category, " appName ", appName);
 
         uint32_t result = executor.Install(type, packageId, version, fileLocator, appName, category);
         // The executor will handle the installation process, so we return SUCCESS here
@@ -100,13 +100,11 @@ namespace packagemanager
     Result PackageImpl::Uninstall(const std::string &packageId)
     {
         std::string uninstallType = "full"; // Assuming full uninstall
-        std::string handle;
         DataStorage::AppDetails appDetails;
-        LOG("Retrieving app details for packageId: ", packageId);
+        INFO("Retrieving app details for packageId: ", packageId);
         executor.GetAppDetails(packageId, appDetails);
-        // LOG("Uninstalling app: {", appDetails.type,", ", appDetails.version, ", ", appDetails.appName, "}");
-        uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType, handle);
-        LOG("Uninstall handle: ", handle);
+
+        uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
         return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
     }
 
@@ -120,7 +118,7 @@ namespace packagemanager
     }
     bool PackageImpl::populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/)
     {
-        LOG("Populating config values from: ", configjsonfile);
+        DEBUG("Populating config values from: ", configjsonfile);
         try
         {
             boost::property_tree::ptree pt;
@@ -130,7 +128,7 @@ namespace packagemanager
             std::vector<std::string> envVars;
             for (const auto &item : envObject)
             {
-                LOG("Adding environment variable: ", item.second.data());
+                DEBUG("Adding environment variable: ", item.second.data());
                 envVars.push_back(item.second.data());
             }
             configMetadata.envVars = envVars;
@@ -140,14 +138,14 @@ namespace packagemanager
             {
                 launchCommand += item.second.data() + " ";
             }
-            LOG(" Adding launch command: ", launchCommand);
+            DEBUG(" Adding launch command: ", launchCommand);
             configMetadata.command = launchCommand;
 
             return true;
         }
         catch (const std::exception &e)
         {
-            LOG("Error populating config values: ", e.what());
+            ERROR("Error populating config values: ", e.what());
             return false;
         }
     }

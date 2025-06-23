@@ -85,7 +85,7 @@ namespace packagemanager
                 currentPath = appsPath + idPath + '/';
                 if (Filesystem::isEmpty(currentPath))
                 {
-                    LOG("empty dir: ", currentPath, " removing");
+                    DEBUG("empty dir: ", currentPath, " removing");
                     Filesystem::removeDirectory(currentPath);
                     continue;
                 }
@@ -106,7 +106,7 @@ namespace packagemanager
                         currentPath = appsPath + idPath + '/' + verSubPath + '/';
                         if (Filesystem::isEmpty(currentPath))
                         {
-                            LOG("empty dir: ", currentPath, " removing");
+                            DEBUG("empty dir: ", currentPath, " removing");
                             Filesystem::removeDirectory(currentPath);
                             continue;
                         }
@@ -125,7 +125,7 @@ namespace packagemanager
 
     uint32_t Executor::Configure(const std::string &configString)
     {
-        LOG("config: '", configString, "'");
+        INFO("config: '", configString, "'");
         config = Config{configString};
 
         auto result{ERROR_NONE};
@@ -134,11 +134,11 @@ namespace packagemanager
             handleDirectories();
             initializeDataBase(config.getDatabasePath());
             doMaintenance();
-            LOG("configuration done");
+            INFO("configuration done");
         }
         catch (std::exception &error)
         {
-            LOG("Unable to configure executor: ", error.what());
+            ERROR("Unable to configure executor: ", error.what());
             return ERROR_GENERAL;
         }
         return result;
@@ -151,7 +151,7 @@ namespace packagemanager
                                const std::string &appName,
                                const std::string &category)
     {
-        LOG("type=", type, " id=", id, " version=", version, " url=", url, " appName=", appName, " cat=", category);
+        INFO("type=", type, " id=", id, " version=", version, " url=", url, " appName=", appName, " cat=", category);
 
         if (type.empty() || id.empty() || version.empty())
         {
@@ -174,7 +174,7 @@ namespace packagemanager
         {
             if (dataBase->GetTypeOfApp(id) != type)
             {
-                LOG("In the DB id '", id, "' is already used with another type! App id must be unique.");
+                ERROR("In the DB id '", id, "' is already used with another type! App id must be unique.");
                 return ERROR_WRONG_PARAMS;
             }
         }
@@ -189,16 +189,14 @@ namespace packagemanager
     uint32_t Executor::Uninstall(const std::string &type,
                                  const std::string &id,
                                  const std::string &version,
-                                 const std::string &uninstallType,
-                                 std::string &handle)
+                                 const std::string &uninstallType)
     {
-        LOG("[Executor::Uninstall] type=", type, " id=", id, " version=", version, " uninstallType=", uninstallType);
+        INFO("[Executor::Uninstall] type=", type, " id=", id, " version=", version, " uninstallType=", uninstallType);
 
         // TODO what are param requirements?
         if (uninstallType != "full" && uninstallType != "upgrade")
         {
-            handle = "WrongParams";
-            LOG("[Executor::Uninstall] uninstallType must be 'full' or 'upgrade'");
+            ERROR("[Executor::Uninstall] uninstallType must be 'full' or 'upgrade'");
             return ERROR_WRONG_PARAMS;
         }
 
@@ -212,121 +210,34 @@ namespace packagemanager
             // verify that such an app record exists
             if (dataBase->GetDataPaths(type, id).size() == 0)
             {
-                LOG("[Executor::Uninstall] No app data found for type=", type, " id=", id);
+                ERROR("[Executor::Uninstall] No app data found for type=", type, " id=", id);
                 return ERROR_WRONG_PARAMS;
             }
             // only allowed when no specific version of app installed anymore
             // if there are: the usual uninstall with a specific version should be called
             if (dataBase->GetAppsPaths(type, id, "").size() > 0)
             {
-                LOG("[Executor::Uninstall] There are still versions of app installed for type=", type, " id=", id);
+                ERROR("[Executor::Uninstall] There are still versions of app installed for type=", type, " id=", id);
                 return ERROR_WRONG_PARAMS;
             }
         }
         else if (!isAppInstalled(type, id, version))
         {
-            handle = "WrongParams";
-            LOG("[Executor::Uninstall] App not installed: type=", type, " id=", id, " version=", version);
+            ERROR("[Executor::Uninstall] App not installed: type=", type, " id=", id, " version=", version);
             return ERROR_WRONG_PARAMS;
         }
-        LOG("[Executor::Uninstall] We are good to uninstall");
+        INFO("[Executor::Uninstall] We are good to uninstall");
         LockGuard lock(taskMutex);
 
         if (std::find(lockedApps.begin(), lockedApps.end(), std::make_pair(id, version)) != lockedApps.end())
         {
-            handle = "AppLocked";
-            LOG("Cannot uninstall app because of lock!");
+            ERROR("Cannot uninstall app because of lock!");
             return ERROR_APP_LOCKED;
         }
-        LOG("[Executor::Uninstall] App is not locked, proceeding with uninstall");
+        INFO("[Executor::Uninstall] App is not locked, proceeding with uninstall");
 
         doUninstall(type, id, version, uninstallType);
         return ERROR_NONE;
-    }
-
-    uint32_t Executor::Lock(const std::string &type,
-                            const std::string &id,
-                            const std::string &version,
-                            std::string &unPackedPath)
-    {
-        LOG("[Executor::Lock] Lock type=", type, " id=", id, " version=", version);
-
-        if (type.empty() || id.empty() || version.empty())
-        {
-            LOG("[Executor::Lock] Wrong parameters: type=", type, " id=", id, " version=", version);
-            return ERROR_WRONG_PARAMS;
-        }
-
-        if (!isAppInstalled(type, id, version))
-        {
-            LOG("[Executor::Lock] App not installed: type=", type, " id=", id, " version=", version);
-            return ERROR_WRONG_PARAMS;
-        }
-
-        LockGuard lock(taskMutex);
-
-        if (std::find(lockedApps.begin(), lockedApps.end(), std::make_pair(id, version)) == lockedApps.end())
-        {
-            lockedApps.push_back({id, version});
-            return ERROR_NONE;
-        }
-        else
-        {
-            LOG("Already locked");
-            return ERROR_APP_LOCKED;
-        }
-    }
-
-    uint32_t Executor::Unlock(const std::string &id,
-                              const std::string &version)
-
-    {
-        LockGuard lock(taskMutex);
-        auto itr = lockedApps.begin();
-        while (itr != lockedApps.end())
-        {
-            if (itr->first == id &&
-                itr->second == version)
-            {
-                LOG("Unlocking app ", id, " version=", version);
-                itr = lockedApps.erase(itr);
-                return ERROR_NONE;
-            }
-            else
-            {
-
-                itr++;
-            }
-        }
-
-        return ERROR_WRONG_HANDLE;
-    }
-
-    uint32_t Executor::GetLockInfo(const std::string &id, const std::string &version, std::string &unpackedPath, bool &locked)
-    {
-        LOG("GetLockInfo  id=", id, " version=", version);
-
-        if (id.empty() || version.empty())
-        {
-            return ERROR_WRONG_PARAMS;
-        }
-        std::string type = dataBase->GetTypeOfApp(id);
-
-        if (!isAppInstalled(type, id, version))
-        {
-            return ERROR_WRONG_PARAMS;
-        }
-
-        LockGuard lock(taskMutex);
-        auto itr = std::find(lockedApps.begin(), lockedApps.end(), std::make_pair(id, version));
-        if (itr != lockedApps.end())
-        {
-            LOG("GetLockInfo found ");
-            locked = true;
-            return ERROR_NONE;
-        }
-
-        return ERROR_WRONG_HANDLE;
     }
 
     uint32_t Executor::GetStorageDetails(const std::string &type,
@@ -341,7 +252,7 @@ namespace packagemanager
             // if all params are empty then the overall disk usage is calculated
             if (type.empty() && id.empty() && version.empty())
             {
-                LOG("Calculating overall usage");
+                INFO("Calculating overall usage");
                 details.appPath = config.getAppsPath();
                 details.appUsedKB = std::to_string((fs::getDirectorySpace(config.getAppsPath()) + fs::getDirectorySpace(config.getAppsTmpPath())) / 1024);
                 details.persistentPath = config.getAppsStoragePath();
@@ -353,7 +264,7 @@ namespace packagemanager
                 // Type is optional since id is unique and sufficient. But if passed, it must match.
                 // If version is also passed: calculate the app size for this version, else not reported.
                 // Data storage size is always reported because this is version independent
-                LOG("Calculating usage for: type = ", type, " id = ", id, " version = ", version);
+                INFO("Calculating usage for: type = ", type, " id = ", id, " version = ", version);
                 if (!version.empty())
                 {
                     std::vector<std::string> appsPaths = dataBase->GetAppsPaths(type, id, version);
@@ -387,7 +298,7 @@ namespace packagemanager
         }
         catch (std::exception &error)
         {
-            LOG("Unable to retrieve storage details: ", error.what());
+            ERROR("Unable to retrieve storage details: ", error.what());
             return ERROR_GENERAL;
         }
         return ERROR_NONE;
@@ -399,7 +310,7 @@ namespace packagemanager
     {
         if (id.empty())
         {
-            LOG("Need app id to get details");
+            ERROR("Need app id to get details");
             return ERROR_WRONG_PARAMS;
         }
 
@@ -416,7 +327,7 @@ namespace packagemanager
         }
         catch (std::exception &error)
         {
-            LOG("Unable to get Application details: ", error.what());
+            ERROR("Unable to get Application details: ", error.what());
             return ERROR_GENERAL;
         }
         return ERROR_NONE;
@@ -428,15 +339,15 @@ namespace packagemanager
                                          const std::string &category,
                                          std::vector<DataStorage::AppDetails> &appsDetailsList) const
     {
-        LOG("Executor::GetAppDetailsList for ", id, "version ", version);
+        INFO("[Executor::GetAppDetailsList] for id : ", id, ", version : ", version);
         try
         {
             appsDetailsList = dataBase->GetAppDetailsListOuterJoin(type, id, version, appName, category);
-            LOG("[Executor::GetAppDetailsList] Retrieved ", appsDetailsList.size(), " app details");
+            INFO("[Executor::GetAppDetailsList] Retrieved ", appsDetailsList.size(), " app details");
         }
         catch (std::exception &error)
         {
-            LOG("Unable to get Applications details: ", error.what());
+            ERROR("Unable to get Applications details: ", error.what());
             return ERROR_GENERAL;
         }
         return ERROR_NONE;
@@ -459,7 +370,7 @@ namespace packagemanager
         }
         catch (std::exception &error)
         {
-            LOG("Unable to set metadata: ", error.what());
+            ERROR("Unable to set metadata: ", error.what());
             return ERROR_GENERAL;
         }
         return ERROR_NONE;
@@ -481,7 +392,7 @@ namespace packagemanager
         }
         catch (std::exception &error)
         {
-            LOG("Unable to clear metadata: ", error.what());
+            ERROR("Unable to clear metadata: ", error.what());
             return ERROR_GENERAL;
         }
         return ERROR_NONE;
@@ -517,7 +428,7 @@ namespace packagemanager
         }
         catch (std::exception &error)
         {
-            LOG("Unable to get metadata: ", error.what());
+            ERROR("Unable to get metadata: ", error.what());
             return ERROR_GENERAL;
         }
         return ERROR_NONE;
@@ -546,7 +457,7 @@ namespace packagemanager
         dataBase = std::make_unique<packagemanager::SqlDataStorage>(path);
         dataBase->Initialize();
         dbDir.commit();
-        LOG("Database created");
+        INFO("Database created");
     }
 
     bool Executor::isAppInstalled(const std::string &type,
@@ -560,7 +471,7 @@ namespace packagemanager
         }
         catch (std::exception &exc)
         {
-            LOG("error while checking if app installed: ", exc.what());
+            ERROR("error while checking if app installed: ", exc.what());
         }
         return appInstalled;
     }
@@ -585,11 +496,11 @@ namespace packagemanager
 
         if (!file.is_open())
         {
-            LOG("Failed to open ", filepath.string());
+            ERROR("Failed to open ", filepath.string());
             return;
         }
 
-        LOG("Auto importing annotations from ", filepath.string());
+        INFO("Auto importing annotations from ", filepath.string());
         try
         {
             boost::property_tree::ptree pt;
@@ -605,14 +516,14 @@ namespace packagemanager
 
                     if (std::regex_search(key, pattern))
                     {
-                        LOG("Importing ", key, " = ", value, " as metadata");
+                        DEBUG("Importing ", key, " = ", value, " as metadata");
                         try
                         {
                             dataBase->SetMetadata(type, id, version, key, value);
                         }
                         catch (std::exception &error)
                         {
-                            LOG("Unable to save metadata: ", error.what());
+                            ERROR("Unable to save metadata: ", error.what());
                         }
                     }
                 }
@@ -620,7 +531,7 @@ namespace packagemanager
         }
         catch (std::exception &error)
         {
-            LOG("Error reading or parsing annotations: ", error.what());
+            ERROR("Error reading or parsing annotations: ", error.what());
         }
     }
 
@@ -631,10 +542,10 @@ namespace packagemanager
                              std::string appName,
                              std::string category)
     {
-        LOG("url=", url, " appName=", appName, " cat=", category);
+        DEBUG("url=", url, " appName=", appName, " cat=", category);
 
         auto appSubPath = Filesystem::createAppPath(id, version);
-        LOG("appSubPath: ", appSubPath);
+        DEBUG("appSubPath: ", appSubPath);
 
         auto tmpPath = config.getAppsTmpPath();
         auto tmpDirPath = tmpPath + appSubPath;
@@ -644,16 +555,16 @@ namespace packagemanager
         auto tmpFilePath = url;
 
         const std::string appsPath = config.getAppsPath() + appSubPath;
-        LOG("creating ", appsPath);
+        DEBUG("creating ", appsPath);
         Filesystem::ScopedDir scopedAppDir{appsPath};
 
-        LOG("unpacking ", tmpFilePath, "to ", appsPath);
+        DEBUG("unpacking ", tmpFilePath, "to ", appsPath);
         Archive::unpack(tmpFilePath, appsPath);
 
         auto appStorageSubPath = Filesystem::createAppPath(id);
         auto appStoragePath = config.getAppsStoragePath() + appStorageSubPath;
 
-        LOG("creating storage ", appStoragePath);
+        DEBUG("creating storage ", appStoragePath);
         Filesystem::ScopedDir scopedAppStorageDir{appStoragePath};
 
         // We are passing empty URL as we are no longer downloading the app
@@ -669,12 +580,12 @@ namespace packagemanager
 
         doMaintenance();
 
-        LOG("[Executor::doInstall] finished");
+        DEBUG("[Executor::doInstall] finished");
     }
 
     void Executor::doUninstall(std::string type, std::string id, std::string version, std::string uninstallType)
     {
-        LOG("[Executor::doUninstall] type=", type, " id=", id, " version=", version, " uninstallType=", uninstallType);
+        DEBUG("[Executor::doUninstall] type=", type, " id=", id, " version=", version, " uninstallType=", uninstallType);
 
         if (!version.empty())
         {
@@ -683,7 +594,7 @@ namespace packagemanager
             auto appSubPath = Filesystem::createAppPath(id, version);
             auto appPath = config.getAppsPath() + appSubPath;
 
-            LOG("[Executor::doUninstall] removing ", appPath);
+            DEBUG("[Executor::doUninstall] removing ", appPath);
             Filesystem::removeDirectory(appPath);
         }
 
@@ -694,36 +605,36 @@ namespace packagemanager
             {
                 dataBase->RemoveAppData(type, id);
                 auto appStoragePath = config.getAppsStoragePath() + Filesystem::createAppPath(id);
-                LOG("[Executor::doUninstall] removing storage directory ", appStoragePath);
+                DEBUG("[Executor::doUninstall] removing storage directory ", appStoragePath);
                 Filesystem::removeDirectory(appStoragePath);
             }
         }
 
         doMaintenance();
 
-        LOG("[Executor::doUninstall] finished");
+        DEBUG("[Executor::doUninstall] finished");
     }
     uint32_t Executor::GetAppConfigPath(const std::string &id,
-                                 const std::string &version, std::string &appPath) const
+                                        const std::string &version, std::string &appPath) const
     {
-        LOG("GetAppConfigPath id=", id, " version=", version);
+        DEBUG("GetAppConfigPath id=", id, " version=", version);
         if (id.empty() || version.empty())
         {
-            LOG("GetAppConfigPath: id or version is empty");
+            ERROR("GetAppConfigPath: id or version is empty");
             return ERROR_WRONG_PARAMS;
         }
         std::vector<std::string> path = dataBase->GetAppsPaths("", id, version);
 
         if (!path.empty())
         {
-            appPath =  config.getAppsPath() + path[0];
+            appPath = config.getAppsPath() + path[0];
             appPath += '/';
             appPath += config.getAnnotationsFile();
-            LOG("GetAppConfigPath: appPath=", appPath);
+            DEBUG("GetAppConfigPath: appPath=", appPath);
         }
         else
         {
-            LOG("GetAppConfigPath: No app path found for id=", id, " version=", version);
+            DEBUG("GetAppConfigPath: No app path found for id=", id, " version=", version);
             return ERROR_WRONG_PARAMS;
         }
         return ERROR_NONE;
@@ -741,10 +652,10 @@ namespace packagemanager
             auto foundApps = scanDirectories(appsPathRoot, false);
             for (const auto &app : foundApps)
             {
-                LOG(app);
+                DEBUG(app);
                 if (!dataBase->IsAppInstalled("", app.id, app.version))
                 {
-                    LOG(app, " not found in installed apps, removing dir");
+                    ERROR(app, " not found in installed apps, removing dir");
                     auto path = config.getAppsPath() + Filesystem::createAppPath(app.id, app.version);
                     Filesystem::removeDirectory(path);
                 }
@@ -755,10 +666,10 @@ namespace packagemanager
             auto foundAppsStorages = scanDirectories(appsStoragePathRoot, true);
             for (const auto &app : foundAppsStorages)
             {
-                LOG(app);
+                DEBUG(app);
                 if (!dataBase->IsAppData("", app.id))
                 {
-                    LOG(app, " not found in apps, removing dir");
+                    DEBUG(app, " not found in apps, removing dir");
                     auto path = config.getAppsStoragePath() + Filesystem::createAppPath(app.id);
                     Filesystem::removeDirectory(path);
                 }
@@ -767,16 +678,16 @@ namespace packagemanager
             auto appsDetailsList = dataBase->GetAppDetailsListOuterJoin();
             for (const auto &details : appsDetailsList)
             {
-                LOG("details: ", details.id, ":", details.version);
+                DEBUG("details: ", details.id, ":", details.version);
 
                 auto appPaths = dataBase->GetAppsPaths(details.type, details.id, details.version);
 
-                LOG("PATHS APPS:");
+                DEBUG("PATHS APPS:");
                 for (const auto &path : appPaths)
                 {
-                    LOG("path: ", path);
+                    DEBUG("path: ", path);
                     auto appPath = config.getAppsPath() + path;
-                    LOG("abs path: ", appPath);
+                    DEBUG("abs path: ", appPath);
 
                     bool noAppFiles = Filesystem::directoryExists(appPath) ? Filesystem::isEmpty(appPath) : true;
                     if (noAppFiles)
@@ -787,12 +698,12 @@ namespace packagemanager
 
                 auto dataPaths = dataBase->GetDataPaths(details.type, details.id);
 
-                LOG("PATHS DATA:");
+                DEBUG("PATHS DATA:");
                 for (const auto &path : dataPaths)
                 {
-                    LOG("path: ", path);
+                    DEBUG("path: ", path);
                     auto dataPath = config.getAppsStoragePath() + path;
-                    LOG("abs path: ", dataPath);
+                    DEBUG("abs path: ", dataPath);
                     if (!Filesystem::directoryExists(dataPath))
                     {
                         Filesystem::createDirectory(dataPath);
@@ -809,7 +720,7 @@ namespace packagemanager
         }
         catch (std::exception &exc)
         {
-            LOG("ERROR: ", exc.what());
+            ERROR("ERROR: ", exc.what());
         }
     }
 } // namespace  packagemanager
