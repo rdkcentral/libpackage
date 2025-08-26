@@ -89,7 +89,7 @@ namespace packagemanager
         virtual Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) = 0;
         virtual Result Uninstall(const std::string &packageId) = 0;
 
-        virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) { return SUCCESS; }
+        virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) = 0;
         virtual Result Unlock(const std::string &packageId, const std::string &version) { return SUCCESS; }
 
         // XXX: Below FOUR functions will be removed after RDK-M is updated, so don't need time the changes in RDK-M

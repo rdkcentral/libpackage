@@ -2,6 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
+ * Copyright 2025 RDK Management
  * Copyright 2021 Liberty Global Service B.V.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,14 +27,12 @@ namespace packagemanager
 {
     namespace Archive
     {
-
-        class ArchiveError : public std::runtime_error
-        {
-        public:
-            using std::runtime_error::runtime_error;
-        };
-
-        void unpack(const std::string &filePath, const std::string &destinationDir);
-
+        /**
+         * Given a compressed archive in tar.gz format, this function will extract the content to the destinationPath
+         * @param archivePath Full path of the archive
+         * @param destinationPath Full path to the destination directory
+         * @return int  1 if the extraction succeeeds, 0 otherwise
+         */
+        int unpackArchive(const std::string &filePath, const std::string &destinationDir);
     } // namespace Archive
 } // namespace packagemanager

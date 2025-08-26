@@ -37,7 +37,7 @@ namespace packagemanager
         return false;
     }
 
-    Result PackageImpl::Initialize(const std::string &configString, ConfigMetadataArray &configMetadata)
+    Result PackageImpl::Initialize(const std::string &configString, ConfigMetadataArray &appMetaMap)
     {
 
         // Initialize the executor
@@ -51,7 +51,7 @@ namespace packagemanager
         const std::string category = "";
 
         result = executor.GetAppDetailsList(type, id, version, appName, category, appsDetailsList);
-        if (result != Executor::ReturnCodes::ERROR_NONE)
+        if (result != RETURN_SUCCESS)
         {
             ERROR("Failed to retrieve app details list, Status : ", result);
             return FAILED;
@@ -60,8 +60,12 @@ namespace packagemanager
         for (auto details : appsDetailsList)
         {
             ConfigMetaData configMetaData;
-            std::string configPath;
-            executor.GetAppConfigPath(details.id, details.version, configPath);
+            std::string path, configPath;
+            if (executor.GetAppInstalledPath(details.id, details.version, path) == SUCCESS)
+            {
+                configMetaData.appPath = path;
+            }
+            executor.GetAppConfigPath(path, configPath);
             INFO(details.appName, " configuration : ", configPath);
 
             if (populateConfigValues(configPath, configMetaData))
@@ -69,9 +73,8 @@ namespace packagemanager
                 configMetaData.appType = INTERACTIVE;
                 configMetaData.wanLanAccess = true;
                 configMetaData.thunder = true;
-                configMetaData.appPath = "/"; // Assuming this is referring to CWD
                 ConfigMetadataKey app = {details.id, details.version};
-                configMetadata[app] = configMetaData;
+                appMetaMap[app] = configMetaData;
                 INFO("Config metadata populated for app: ", details.appName);
             }
             else
@@ -79,7 +82,7 @@ namespace packagemanager
                 ERROR("Failed to populate config metadata for app: ", details.appName);
             }
         }
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED;
     }
 
     Result PackageImpl::Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata)
@@ -94,7 +97,30 @@ namespace packagemanager
 
         uint32_t result = executor.Install(type, packageId, version, fileLocator, appName, category);
         // The executor will handle the installation process, so we return SUCCESS here
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED;
+    }
+
+    Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &appConfig, NameValues &additionalLocks)
+    {
+        uint32_t result = executor.GetAppInstalledPath(packageId, version, unpackedPath); // Assuming appPath is the unpacked path
+
+        if (result == RETURN_SUCCESS)
+        {
+            INFO("Locking for app ", packageId, ", Path is ", unpackedPath);
+            std::string configPath, path;
+            if (executor.GetAppConfigPath(path, configPath) == RETURN_SUCCESS)
+            {
+                DEBUG("Config path for app ", packageId, " is ", configPath);
+
+                if (populateConfigValues(configPath, appConfig))
+                {
+                    appConfig.appType = INTERACTIVE;
+                    appConfig.wanLanAccess = true;
+                    appConfig.thunder = true;
+                }
+            }
+        }
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED; // Locking is not implemented in this context, so we return SUCCESS
     }
 
     Result PackageImpl::Uninstall(const std::string &packageId)
@@ -105,7 +131,7 @@ namespace packagemanager
         executor.GetAppDetails(packageId, appDetails);
 
         uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED;
     }
 
     std::shared_ptr<packagemanager::IPackageImpl> IPackageImpl::instance()
