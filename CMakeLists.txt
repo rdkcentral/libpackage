@@ -48,4 +48,6 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 add_subdirectory(app)
-add_subdirectory(tests)
+if(LiBPACKAGE_L1_TESTS)
+    add_subdirectory(tests)
+endif()

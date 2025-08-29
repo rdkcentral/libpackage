@@ -332,5 +332,6 @@ namespace packagemanager
             }
             return (unsigned long long)space;
         }
+
     } // namespace Filesystem
 } // namespace packagemanager
