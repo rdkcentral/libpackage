@@ -19,7 +19,6 @@
 
 #include "Filesystem.h"
 #include "Debug.h"
-#include <algorithm>
 
 #include <boost/filesystem.hpp>
 #include <unistd.h>
