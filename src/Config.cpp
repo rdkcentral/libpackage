@@ -76,12 +76,6 @@ namespace packagemanager
                     assureEndsWithSlash(databasePath);
                     DEBUG("databasePath ", databasePath);
                 }
-                else if (it->first == DATA_PATH_KEY_NAME)
-                {
-                    appsStoragePath = it->second.get_value<std::string>();
-                    assureEndsWithSlash(appsStoragePath);
-                    DEBUG("appsStoragePath ", appsStoragePath);
-                }
                 else if (it->first == ANNOTATIONS_FILE_KEY_NAME)
                 {
                     annotationsFile = it->second.get_value<std::string>();
@@ -129,11 +123,6 @@ namespace packagemanager
         return appsPath;
     }
 
-    const std::string &Config::getAppsStoragePath() const
-    {
-        return appsStoragePath;
-    }
-
     const std::string &Config::getAnnotationsFile() const
     {
         return annotationsFile;
@@ -163,8 +152,7 @@ namespace packagemanager
 
     std::ostream &operator<<(std::ostream &out, const Config &config)
     {
-        return out << "[appsPath: " << config.appsPath << " tmpPath: " << config.appsTmpPath << " appStoragePath: "
-                   << config.appsStoragePath
+        return out << "[appsPath: " << config.appsPath << " tmpPath: " << config.appsTmpPath 
                    << " annotationsFile: " << config.annotationsFile
                    << " annotationsRegex: " << config.annotationsRegex
                    << " dacBundlePlatformNameOverride: " << config.dacBundlePlatformNameOverride

@@ -3,7 +3,7 @@
  * following copyright and licenses apply:
  *
  * Copyright 2021 Liberty Global Service B.V.
- *
+ * Copyright 2025 RDK Management
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -41,77 +41,8 @@ namespace packagemanager
 
     class Executor
     {
-    public:
-        enum ReturnCodes
-        {
-            ERROR_NONE = 0, // Core::ERROR_NONE,
-            ERROR_GENERAL = 1,
-            ERROR_WRONG_PARAMS = 1001,
-            ERROR_TOO_MANY_REQUESTS = 1002,
-            ERROR_ALREADY_INSTALLED = 1003,
-            ERROR_WRONG_HANDLE = 1007,
-            ERROR_APP_LOCKED = 1009,
-            ERROR_APP_UNINSTALLING = 1010
-        };
 
-        enum class OperationStatus
-        {
-            SUCCESS,
-            FAILED,
-            PROGRESS,
-            CANCELLED
-        };
-        enum class OperationType
-        {
-            INSTALLING,
-            UNINSTALLING
-        };
-        struct OperationStatusEvent
-        {
-            std::string handle, type, id, version, details;
-            OperationType operation;
-            OperationStatus status;
-            OperationStatusEvent() {}
-            OperationStatusEvent(const std::string &handle_, const packagemanager::Executor::OperationType &operation_, const std::string &type_, const std::string &id_,
-                                 const std::string &version_, const packagemanager::Executor::OperationStatus &status_, const std::string &details_) : handle(handle_), type(type_), id(id_), version(version_), details(details_), operation(operation_), status(status_)
-            {
-            }
-            static std::string statusStr(const packagemanager::Executor::OperationStatus &status)
-            {
-                switch (status)
-                {
-                case packagemanager::Executor::OperationStatus::SUCCESS:
-                    return "Success";
-                case packagemanager::Executor::OperationStatus::FAILED:
-                    return "Failed";
-                case packagemanager::Executor::OperationStatus::PROGRESS:
-                    return "Progress";
-                case packagemanager::Executor::OperationStatus::CANCELLED:
-                    return "Cancelled";
-                }
-                return "";
-            }
-            std::string statusStr() const
-            {
-                return OperationStatusEvent::statusStr(status);
-            }
-            static std::string operationStr(const packagemanager::Executor::OperationType &operation)
-            {
-                switch (operation)
-                {
-                case packagemanager::Executor::OperationType::INSTALLING:
-                    return "Installing";
-                case packagemanager::Executor::OperationType::UNINSTALLING:
-                    return "Uninstalling";
-                }
-                return "";
-            }
-            std::string operationStr() const
-            {
-                return OperationStatusEvent::operationStr(operation);
-            }
-        };
-
+        public:
         uint32_t Configure(const std::string &configString);
 
         uint32_t Install(const std::string &type,
@@ -138,12 +69,13 @@ namespace packagemanager
                                    const std::string &category,
                                    std::vector<DataStorage::AppDetails> &appsDetailsList) const;
 
-        uint32_t GetAppConfigPath(const std::string &id,
-                                   const std::string &version, std::string &appPath) const;
-
-        uint32_t GetAppDetails(
-            const std::string &id,
-            DataStorage::AppDetails &appsDetailsList) const;
+        uint32_t GetAppConfigPath(const std::string &path,
+                                  std::string &appPath) const;
+        uint32_t GetAppInstalledPath(const std::string &id,
+                                               const std::string &version, std::string &appPath) const;
+            uint32_t GetAppDetails(
+                const std::string &id,
+                DataStorage::AppDetails &appsDetailsList) const;
 
         uint32_t SetMetadata(const std::string &type,
                              const std::string &id,
@@ -174,7 +106,7 @@ namespace packagemanager
                                const std::string &version,
                                const std::string &appPath);
 
-        void doInstall(std::string type,
+        bool extract(std::string type,
                        std::string id,
                        std::string version,
                        std::string url,
