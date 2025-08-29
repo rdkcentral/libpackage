@@ -59,9 +59,6 @@ namespace packagemanager
         std::string appsStoragePath{"/mnt/data/dac/"};
         std::string annotationsFile;
         std::string annotationsRegex;
-        unsigned int downloadRetryAfterSeconds{30};
-        unsigned int downloadRetryMaxTimes{4};
-        unsigned int downloadTimeoutSeconds{15 * 60};
         std::string dacBundlePlatformNameOverride;
         std::string dacBundleFirmwareCompatibilityKey;
         std::string configUrl;

@@ -15,6 +15,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ *
  */
 #pragma once
 
@@ -24,6 +26,7 @@
 #include <memory>
 #include <map>
 #include <vector>
+#include <set>
 
 namespace packagemanager
 {
@@ -31,8 +34,16 @@ namespace packagemanager
     enum Result : uint8_t
     {
         SUCCESS,
-        FAILED
+        FAILED,
+        VERSION_MISMATCH
     };
+
+    typedef enum : uint8_t
+    {
+        UNKNOWN = 0,
+        INTERACTIVE,
+        SYSTEM
+    } ApplicationType;
 
     struct ConfigMetaData
     {
@@ -45,29 +56,46 @@ namespace packagemanager
         uint32_t userId;
         uint32_t groupId;
         uint32_t dataImageSize;
+
+        bool resourceManagerClientEnabled;
+        std::string dialId;
+        std::string command;
+        ApplicationType appType;
+        std::string appPath;
+        std::string runtimePath;
+
+        std::string logFilePath;
+        uint32_t logFileMaxSize;
+        std::string logLevels; // json array of strings
+        bool mapi;
+        std::set<std::string> fkpsFiles;
+
+        std::string fireboltVersion;
+        bool enableDebugger;
     };
 
     typedef std::pair<std::string, std::string> ConfigMetadataKey;
     typedef std::map<ConfigMetadataKey, ConfigMetaData> ConfigMetadataArray;
 
-    typedef std::vector<std::pair<std::string, std::string> > NameValues;
-
+    typedef std::pair<std::string, std::string> NameValue;
+    typedef std::vector<NameValue> NameValues;
     class IPackageImpl
     {
     public:
         virtual ~IPackageImpl() = default;
 
-        virtual Result Initialize(const std::string &configStr, ConfigMetadataArray &configMetadata) = 0;
+        virtual Result Initialize(const std::string &configStr, ConfigMetadataArray &aConfigMetadata) = 0;
 
         virtual Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) = 0;
         virtual Result Uninstall(const std::string &packageId) = 0;
 
-        virtual Result GetList(std::string &packageList) = 0;
+        virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) { return SUCCESS; }
+        virtual Result Unlock(const std::string &packageId, const std::string &version) { return SUCCESS; }
 
-        virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) = 0;
-        virtual Result Unlock(const std::string &packageId, const std::string &version) = 0;
-
-        virtual Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) = 0;
+        // XXX: Below FOUR functions will be removed after RDK-M is updated, so don't need time the changes in RDK-M
+        virtual Result GetLockInfo(const std::string &packageId, const std::string &version, std::string &unpackedPath, bool &locked) { return SUCCESS; }
+        virtual Result GetList(std::string &packageList) { return SUCCESS; }
+        virtual Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata) { return SUCCESS; }
 
         static std::shared_ptr<packagemanager::IPackageImpl> instance();
     };

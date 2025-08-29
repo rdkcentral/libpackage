@@ -49,7 +49,7 @@ namespace packagemanager
                         std::string message = std::string{} + "error opening file " + archive_error_string(theArchive);
                         throw ArchiveError(message);
                     }
-                    INFO("archive opened ", filePath);
+                    DEBUG("[Archive] archive opened  %s", filePath);
                 }
 
                 Archive(const Archive &other) = delete;
@@ -74,7 +74,7 @@ namespace packagemanager
 
                         if (readHeaderResult == ARCHIVE_EOF)
                         {
-                            INFO("archive read successfully");
+                            DEBUG("archive read successfully");
                             break;
                         }
                         else if (readHeaderResult != ARCHIVE_OK && readHeaderResult != ARCHIVE_WARN)
@@ -84,7 +84,7 @@ namespace packagemanager
                         }
                         else if (readHeaderResult == ARCHIVE_WARN)
                         {
-                            INFO("Warning while reading entry ", archive_error_string(theArchive));
+                            WARNING("Warning while reading entry ", archive_error_string(theArchive));
                         }
 
                         std::string destPath{destination + archive_entry_pathname(entry)};
@@ -100,10 +100,10 @@ namespace packagemanager
                         auto extractStatus = archive_read_extract(theArchive, entry, flags);
                         if (extractStatus == ARCHIVE_OK || extractStatus == ARCHIVE_WARN)
                         {
-                            INFO("extracted: ", archive_entry_pathname(entry));
+                            DEBUG("extracted: ", archive_entry_pathname(entry));
                             if (extractStatus == ARCHIVE_WARN)
                             {
-                                INFO("Warning while extracting ", archive_error_string(theArchive));
+                                WARNING("Warning while extracting ", archive_error_string(theArchive));
                             }
                         }
                         else

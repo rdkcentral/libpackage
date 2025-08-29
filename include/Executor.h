@@ -124,18 +124,7 @@ namespace packagemanager
         uint32_t Uninstall(const std::string &type,
                            const std::string &id,
                            const std::string &version,
-                           const std::string &uninstallType,
-                           std::string &handle);
-
-        uint32_t Lock(const std::string &type,
-                      const std::string &id,
-                      const std::string &version,
-                      std::string &unLockedPath);
-
-        uint32_t Unlock(const std::string &id,
-                        const std::string &version);
-
-        uint32_t GetLockInfo(const std::string &id, const std::string &version, std::string &unpackedPath, bool &locked);
+                           const std::string &uninstallType);
 
         uint32_t GetStorageDetails(const std::string &type,
                                    const std::string &id,
@@ -148,6 +137,9 @@ namespace packagemanager
                                    const std::string &appName,
                                    const std::string &category,
                                    std::vector<DataStorage::AppDetails> &appsDetailsList) const;
+
+        uint32_t GetAppConfigPath(const std::string &id,
+                                   const std::string &version, std::string &appPath) const;
 
         uint32_t GetAppDetails(
             const std::string &id,
