@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_CXX_STANDARD=14 -DCMAKE_CXX_FLAGS="-std=c++14" -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g" ..
+          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DLIBPACKAGE_L1_TESTS=ON -DCMAKE_CXX_STANDARD=14 -DCMAKE_CXX_FLAGS="-std=c++14" -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g" ..
           make
           ./tests/PackageImplTest
       - name: Generate Code Coverage
