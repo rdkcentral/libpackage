@@ -81,7 +81,8 @@ TEST_F(PackageImplTest, LockHandlesInvalidPackageId) {
     std::string version = "1.0.0";
     std::string unpackedPath;
     packagemanager::ConfigMetaData configMetadata;
-    auto result = packageImpl.Lock(invalidPackageId, version, unpackedPath, configMetadata);
+    packagemanager::NameValues additionalLocks;
+    auto result = packageImpl.Lock(invalidPackageId, version, unpackedPath, configMetadatai,additionalLocks);
     EXPECT_EQ(result, packagemanager::Result::FAILED);
 }
 
