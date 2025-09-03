@@ -618,7 +618,8 @@ namespace packagemanager
         DEBUG("GetAppConfigPath installed path=", path);
 
         appPath = path  + "/" + config.getAnnotationsFile();
-        return RETURN_SUCCESS;
+
+        return boost::filesystem::exists(appPath)? RETURN_SUCCESS : RETURN_ERROR;
     }
     void Executor::doMaintenance()
     {
