@@ -42,7 +42,7 @@ namespace packagemanager
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        INFO("PackageImpl  initialized, Status : ", result);
+        INFO("PackageImpl  1.0.0 initialized, Status : ", result);
         std::vector<DataStorage::AppDetails> appsDetailsList;
         const std::string type = "";
         const std::string id = "";
@@ -60,19 +60,9 @@ namespace packagemanager
         for (auto details : appsDetailsList)
         {
             ConfigMetaData configMetaData;
-            std::string path, configPath;
-            if (executor.GetAppInstalledPath(details.id, details.version, path) == SUCCESS)
-            {
-                configMetaData.appPath = path;
-            }
-            executor.GetAppConfigPath(path, configPath);
-            INFO(details.appName, " configuration : ", configPath);
 
-            if (populateConfigValues(configPath, configMetaData))
+            if (populateConfigValues(details.id, details.version, configMetaData))
             {
-                configMetaData.appType = INTERACTIVE;
-                configMetaData.wanLanAccess = true;
-                configMetaData.thunder = true;
                 ConfigMetadataKey app = {details.id, details.version};
                 appMetaMap[app] = configMetaData;
                 INFO("Config metadata populated for app: ", details.appName);
@@ -102,25 +92,14 @@ namespace packagemanager
 
     Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &appConfig, NameValues &additionalLocks)
     {
-        uint32_t result = executor.GetAppInstalledPath(packageId, version, unpackedPath); // Assuming appPath is the unpacked path
-
-        if (result == RETURN_SUCCESS)
+        INFO("PackageImpl Lock, packageId: ", packageId, " version: ", version);
+        if(populateConfigValues(packageId, version, appConfig))
         {
-            INFO("Locking for app ", packageId, ", Path is ", unpackedPath);
-            std::string configPath, path;
-            if (executor.GetAppConfigPath(path, configPath) == RETURN_SUCCESS)
-            {
-                DEBUG("Config path for app ", packageId, " is ", configPath);
-
-                if (populateConfigValues(configPath, appConfig))
-                {
-                    appConfig.appType = INTERACTIVE;
-                    appConfig.wanLanAccess = true;
-                    appConfig.thunder = true;
-                }
-            }
+            unpackedPath = appConfig.appPath;
+            return SUCCESS;
         }
-        return result == RETURN_SUCCESS ? SUCCESS : FAILED; // Locking is not implemented in this context, so we return SUCCESS
+        ERROR("Failed to lock packageId: ", packageId, " version: ", version);
+        return FAILED;
     }
 
     Result PackageImpl::Uninstall(const std::string &packageId)
@@ -142,13 +121,29 @@ namespace packagemanager
 
         return packageImpl;
     }
-    bool PackageImpl::populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/)
+    bool PackageImpl::populateConfigValues(const std::string &packageId, const std::string &version, ConfigMetaData &configMetadata /* out*/)
     {
-        DEBUG("Populating config values from: ", configjsonfile);
+        DEBUG("Populating config values for : ", packageId);
+        std::string unpackedPath;
+        uint32_t result = executor.GetAppInstalledPath(packageId, version, unpackedPath); // Assuming appPath is the unpacked path
+
+        if (result == RETURN_ERROR)
+        {
+            ERROR("Failed to get installed path for app ", packageId);
+            return false;
+        }
+        configMetadata.appPath = unpackedPath;
+        std::string configPath;
+        if (executor.GetAppConfigPath(unpackedPath, configPath) == RETURN_ERROR)
+        {
+            ERROR("Failed to find config path for app ", packageId);
+            return false;
+        }
+
         try
         {
             boost::property_tree::ptree pt;
-            boost::property_tree::read_json(configjsonfile, pt);
+            boost::property_tree::read_json(configPath, pt);
 
             boost::property_tree::ptree envObject = pt.get_child("process.env", boost::property_tree::ptree());
             std::vector<std::string> envVars;
@@ -166,7 +161,9 @@ namespace packagemanager
             }
             DEBUG(" Adding launch command: ", launchCommand);
             configMetadata.command = launchCommand;
-
+            configMetadata.appType = INTERACTIVE;
+            configMetadata.wanLanAccess = true;
+            configMetadata.thunder = true;
             return true;
         }
         catch (const std::exception &e)
@@ -174,5 +171,10 @@ namespace packagemanager
             ERROR("Error populating config values: ", e.what());
             return false;
         }
+    }
+    Result PackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
+    {
+        INFO("PackageImpl GetFileMetadata, packageId: ", packageId, " version: ", version, " fileLocator: ", fileLocator);
+        return populateConfigValues(packageId, version, configMetadata) ? SUCCESS : FAILED;
     }
 }
