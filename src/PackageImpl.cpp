@@ -42,7 +42,11 @@ namespace packagemanager
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        INFO("PackageImpl  1.0.0 initialized, Status : ", result);
+        if (result != RETURN_SUCCESS)
+        {
+            ERROR("Failed to configure executor, Status : ", result);
+            return FAILED;
+        }
         std::vector<DataStorage::AppDetails> appsDetailsList;
         const std::string type = "";
         const std::string id = "";
@@ -93,7 +97,7 @@ namespace packagemanager
     Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &appConfig, NameValues &additionalLocks)
     {
         INFO("PackageImpl Lock, packageId: ", packageId, " version: ", version);
-        if(populateConfigValues(packageId, version, appConfig))
+        if (populateConfigValues(packageId, version, appConfig))
         {
             unpackedPath = appConfig.appPath;
             return SUCCESS;
@@ -104,12 +108,23 @@ namespace packagemanager
 
     Result PackageImpl::Uninstall(const std::string &packageId)
     {
+        uint32_t result = RETURN_ERROR;
         std::string uninstallType = "full"; // Assuming full uninstall
-        DataStorage::AppDetails appDetails;
-        INFO("Retrieving app details for packageId: ", packageId);
-        executor.GetAppDetails(packageId, appDetails);
 
-        uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
+        if (!packageId.empty())
+        {
+            DataStorage::AppDetails appDetails;
+            INFO("Retrieving app details for packageId: ", packageId);
+            result = executor.GetAppDetails(packageId, appDetails);
+            if (result == RETURN_SUCCESS)
+                result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
+            else
+                ERROR("Failed to retrieve package details for packageId: ", packageId);
+        }
+        else
+        {
+            ERROR("Empty packageId provided for Uninstall");
+        }
         return result == RETURN_SUCCESS ? SUCCESS : FAILED;
     }
 
@@ -145,19 +160,28 @@ namespace packagemanager
             boost::property_tree::ptree pt;
             boost::property_tree::read_json(configPath, pt);
 
-            boost::property_tree::ptree envObject = pt.get_child("process.env", boost::property_tree::ptree());
+            boost::property_tree::ptree envObject;
+            auto envOpt = pt.get_child_optional("process.env");
             std::vector<std::string> envVars;
-            for (const auto &item : envObject)
+            if (envOpt)
             {
-                DEBUG("Adding environment variable: ", item.second.data());
-                envVars.push_back(item.second.data());
+                envObject = *envOpt;
+                for (const auto &item : envObject)
+                {
+                    DEBUG("Adding environment variable: ", item.second.data());
+                    envVars.push_back(item.second.data());
+                }
             }
             configMetadata.envVars = envVars;
-            envObject = pt.get_child("process.args", boost::property_tree::ptree());
+            auto argsOpt = pt.get_child_optional("process.args");
             std::string launchCommand;
-            for (const auto &item : envObject)
+            if (argsOpt)
             {
-                launchCommand += item.second.data() + " ";
+                envObject = *argsOpt;
+                for (const auto &item : envObject)
+                {
+                    launchCommand += item.second.data() + " ";
+                }
             }
             DEBUG(" Adding launch command: ", launchCommand);
             configMetadata.command = launchCommand;

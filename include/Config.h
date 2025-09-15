@@ -52,9 +52,9 @@ namespace packagemanager
         friend std::ostream &operator<<(std::ostream &out, const Config &config);
 
     private:
-        std::string databasePath{"/mnt/apps/dac/db/"};
-        std::string appsPath{"/mnt/apps/dac/images/"};
-        std::string appsTmpPath{"/mnt/apps/dac/images/tmp/"};
+        std::string databasePath;
+        std::string appsPath;
+        std::string appsTmpPath;
         std::string annotationsFile;
         std::string annotationsRegex;
         std::string dacBundlePlatformNameOverride;

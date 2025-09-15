@@ -130,6 +130,11 @@ namespace packagemanager
         config = Config{configString};
 
         auto result{RETURN_SUCCESS};
+        if (config.getAppsPath().empty() || config.getDatabasePath().empty())
+        {
+            ERROR("[Executor::Configure] Apps path or database path is empty");
+            return RETURN_ERROR;
+        }
         try
         {
             handleDirectories();
@@ -162,7 +167,7 @@ namespace packagemanager
 
         if (!Filesystem::isAcceptableFilePath(id) || !Filesystem::isAcceptableFilePath(version))
         {
-             ERROR("[Executor::Install] Invalid file or path name!");
+            ERROR("[Executor::Install] Invalid file or path name!");
             return RETURN_ERROR;
         }
 
@@ -284,7 +289,7 @@ namespace packagemanager
                     }
                     details.appUsedKB = std::to_string(appUsedKB / 1024);
                 }
-             }
+            }
             else
             {
                 return RETURN_ERROR;
@@ -527,11 +532,11 @@ namespace packagemanager
     }
 
     bool Executor::extract(std::string type,
-                             std::string id,
-                             std::string version,
-                             std::string url,
-                             std::string appName,
-                             std::string category)
+                           std::string id,
+                           std::string version,
+                           std::string url,
+                           std::string appName,
+                           std::string category)
     {
         DEBUG("[Executor::extract] url=", url, " appName=", appName, " cat=", category);
 
@@ -565,7 +570,7 @@ namespace packagemanager
         importAnnotations(type, id, version, appsPath);
 
         doMaintenance();
-        
+
         DEBUG("[Executor::extract] finished");
         return response;
     }
@@ -617,9 +622,9 @@ namespace packagemanager
     {
         DEBUG("GetAppConfigPath installed path=", path);
 
-        appPath = path  + "/" + config.getAnnotationsFile();
+        appPath = path + "/" + config.getAnnotationsFile();
 
-        return boost::filesystem::exists(appPath)? RETURN_SUCCESS : RETURN_ERROR;
+        return boost::filesystem::exists(appPath) ? RETURN_SUCCESS : RETURN_ERROR;
     }
     void Executor::doMaintenance()
     {
@@ -665,13 +670,11 @@ namespace packagemanager
                 }
 
                 auto dataPaths = dataBase->GetDataPaths(details.type, details.id);
-
             }
 
 #if LISA_APPS_GID
             Filesystem::setPermissionsRecursively(config.getAppsPath(), LISA_APPS_GID, false);
 #endif
-
         }
         catch (std::exception &exc)
         {
