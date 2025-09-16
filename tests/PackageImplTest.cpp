@@ -127,19 +127,20 @@ TEST_F(PackageImplTest, ValidDataTesting)
     sqlite3_close(db);
     remove(dbPath.c_str());
 }
-TEST_F(PackageImplTest, GetFileMetadataHandlesValid) {
-    std::string fileLocator = "http://com.rdk/cobalt";
-    std::string packageId = "test_package";
-    std::string version = "1.0.0";
-    packagemanager::ConfigMetaData configMetadata;
-    packagemanager::Result result = packageImpl.GetFileMetadata(fileLocator, packageId, version, configMetadata);
-    EXPECT_EQ(result, packagemanager::Result::SUCCESS);
-}
-TEST_F(PackageImplTest, DISABLED_GetFileMetadataHandlesEmptyPackageId) {
-    std::string fileLocator = "http://com.rdk/cobalt";
+TEST_F(PackageImplTest, GetFileMetadataHandlesEmptyPackageId) {
+    std::string fileLocator = "";
     std::string emptyPackageId = "";
     std::string version = "1.0.0";
     packagemanager::ConfigMetaData configMetadata;
     auto result = packageImpl.GetFileMetadata(fileLocator, emptyPackageId, version, configMetadata);
     EXPECT_EQ(result, packagemanager::Result::FAILED);
 }
+TEST_F(PackageImplTest, GetFileMetadataHandlesValid) {
+    std::string fileLocator = "";
+    std::string packageId = "com.rdk.sleepy";
+    std::string version = "1.0";
+    packagemanager::ConfigMetaData configMetadata;
+    packagemanager::Result result = packageImpl.GetFileMetadata(fileLocator, packageId, version, configMetadata);
+    EXPECT_EQ(result, packagemanager::Result::SUCCESS);
+}
+
