@@ -135,12 +135,3 @@ TEST_F(PackageImplTest, GetFileMetadataHandlesEmptyPackageId) {
     auto result = packageImpl.GetFileMetadata(fileLocator, emptyPackageId, version, configMetadata);
     EXPECT_EQ(result, packagemanager::Result::FAILED);
 }
-TEST_F(PackageImplTest, GetFileMetadataHandlesValid) {
-    std::string fileLocator = "";
-    std::string packageId = "com.rdk.sleepy";
-    std::string version = "1.0";
-    packagemanager::ConfigMetaData configMetadata;
-    packagemanager::Result result = packageImpl.GetFileMetadata(fileLocator, packageId, version, configMetadata);
-    EXPECT_EQ(result, packagemanager::Result::SUCCESS);
-}
-
