@@ -2,9 +2,9 @@ name: Google Test
 
 on:
   push:
-    branches: [ "develop","main" ]
+    branches: [ "develop","main","topic/unittestfixes" ]
   pull_request:
-    branches: [ "develop","main" ]
+    branches: [ "develop","main","topic/unittestfixes" ]
   workflow_dispatch:
 jobs:
   build:
