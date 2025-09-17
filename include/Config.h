@@ -40,7 +40,6 @@ namespace packagemanager
         const std::string &getDatabasePath() const;
         const std::string &getAppsTmpPath() const;
         const std::string &getAppsPath() const;
-        const std::string &getAppsStoragePath() const;
         const std::string &getAnnotationsFile() const;
         const std::string &getAnnotationsRegex() const;
         unsigned int getDownloadRetryAfterSeconds() const;
@@ -53,10 +52,9 @@ namespace packagemanager
         friend std::ostream &operator<<(std::ostream &out, const Config &config);
 
     private:
-        std::string databasePath{"/mnt/apps/dac/db/"};
-        std::string appsPath{"/mnt/apps/dac/images/"};
-        std::string appsTmpPath{"/mnt/apps/dac/images/tmp/"};
-        std::string appsStoragePath{"/mnt/data/dac/"};
+        std::string databasePath;
+        std::string appsPath;
+        std::string appsTmpPath;
         std::string annotationsFile;
         std::string annotationsRegex;
         std::string dacBundlePlatformNameOverride;

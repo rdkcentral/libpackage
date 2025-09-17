@@ -30,14 +30,24 @@ set(PACKAGE_SRCS
     src/Config.cpp
 )
 find_package(Sqlite REQUIRED)
-find_package(Boost COMPONENTS system filesystem REQUIRED)
+find_package(Boost COMPONENTS filesystem REQUIRED)
+
+#This is set only for development in apple 
+#set(LibArchive_INCLUDE_DIR "/opt/homebrew/opt/libarchive/include")
 find_package(LibArchive REQUIRED)
 
 include_directories(include)
+include(GNUInstallDirs)
 
 add_library(Package SHARED ${PACKAGE_SRCS})
 
 set_target_properties(Package PROPERTIES VERSION 1.0.0 SOVERSION 1)
+target_include_directories(Package
+    PRIVATE ${LibArchive_INCLUDE_DIR}
+    PRIVATE ${Boost_INCLUDE_DIRS}
+    PRIVATE ${SQLITE_INCLUDE_DIRS}
+)
+
 target_link_libraries(Package
     PRIVATE ${LibArchive_LIBRARIES}
     PRIVATE ${Boost_FILESYSTEM_LIBRARY}
@@ -51,3 +61,6 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 add_subdirectory(app)
+if(LIBPACKAGE_L1_TESTS)
+    add_subdirectory(tests)
+endif()

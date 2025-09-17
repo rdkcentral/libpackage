@@ -21,6 +21,11 @@
 #include <iostream>
 namespace packagemanager
 {
+    enum RETURN_CODE
+    {
+        RETURN_SUCCESS = 0,
+        RETURN_ERROR = 1
+    };
     enum LOG_LEVEL
     {
         LOG_LEVEL_ERROR = 0,

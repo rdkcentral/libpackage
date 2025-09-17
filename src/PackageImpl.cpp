@@ -37,12 +37,16 @@ namespace packagemanager
         return false;
     }
 
-    Result PackageImpl::Initialize(const std::string &configString, ConfigMetadataArray &configMetadata)
+    Result PackageImpl::Initialize(const std::string &configString, ConfigMetadataArray &appMetaMap)
     {
 
         // Initialize the executor
         uint32_t result = executor.Configure(configString); // Assuming empty config for now, can be replaced with actual config string
-        INFO("PackageImpl  initialized, Status : ", result);
+        if (result != RETURN_SUCCESS)
+        {
+            ERROR("Failed to configure executor, Status : ", result);
+            return FAILED;
+        }
         std::vector<DataStorage::AppDetails> appsDetailsList;
         const std::string type = "";
         const std::string id = "";
@@ -51,7 +55,7 @@ namespace packagemanager
         const std::string category = "";
 
         result = executor.GetAppDetailsList(type, id, version, appName, category, appsDetailsList);
-        if (result != Executor::ReturnCodes::ERROR_NONE)
+        if (result != RETURN_SUCCESS)
         {
             ERROR("Failed to retrieve app details list, Status : ", result);
             return FAILED;
@@ -60,18 +64,11 @@ namespace packagemanager
         for (auto details : appsDetailsList)
         {
             ConfigMetaData configMetaData;
-            std::string configPath;
-            executor.GetAppConfigPath(details.id, details.version, configPath);
-            INFO(details.appName, " configuration : ", configPath);
 
-            if (populateConfigValues(configPath, configMetaData))
+            if (populateConfigValues(details.id, details.version, configMetaData))
             {
-                configMetaData.appType = INTERACTIVE;
-                configMetaData.wanLanAccess = true;
-                configMetaData.thunder = true;
-                configMetaData.appPath = "/"; // Assuming this is referring to CWD
                 ConfigMetadataKey app = {details.id, details.version};
-                configMetadata[app] = configMetaData;
+                appMetaMap[app] = configMetaData;
                 INFO("Config metadata populated for app: ", details.appName);
             }
             else
@@ -79,7 +76,7 @@ namespace packagemanager
                 ERROR("Failed to populate config metadata for app: ", details.appName);
             }
         }
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED;
     }
 
     Result PackageImpl::Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata)
@@ -94,18 +91,41 @@ namespace packagemanager
 
         uint32_t result = executor.Install(type, packageId, version, fileLocator, appName, category);
         // The executor will handle the installation process, so we return SUCCESS here
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED;
+    }
+
+    Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &appConfig, NameValues &additionalLocks)
+    {
+        INFO("PackageImpl Lock, packageId: ", packageId, " version: ", version);
+        if (populateConfigValues(packageId, version, appConfig))
+        {
+            unpackedPath = appConfig.appPath;
+            return SUCCESS;
+        }
+        ERROR("Failed to lock packageId: ", packageId, " version: ", version);
+        return FAILED;
     }
 
     Result PackageImpl::Uninstall(const std::string &packageId)
     {
+        uint32_t result = RETURN_ERROR;
         std::string uninstallType = "full"; // Assuming full uninstall
-        DataStorage::AppDetails appDetails;
-        INFO("Retrieving app details for packageId: ", packageId);
-        executor.GetAppDetails(packageId, appDetails);
 
-        uint32_t result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
-        return result == Executor::ReturnCodes::ERROR_NONE ? SUCCESS : FAILED;
+        if (!packageId.empty())
+        {
+            DataStorage::AppDetails appDetails;
+            INFO("Retrieving app details for packageId: ", packageId);
+            result = executor.GetAppDetails(packageId, appDetails);
+            if (result == RETURN_SUCCESS)
+                result = executor.Uninstall(appDetails.type, packageId, appDetails.version, uninstallType);
+            else
+                ERROR("Failed to retrieve package details for packageId: ", packageId);
+        }
+        else
+        {
+            ERROR("Empty packageId provided for Uninstall");
+        }
+        return result == RETURN_SUCCESS ? SUCCESS : FAILED;
     }
 
     std::shared_ptr<packagemanager::IPackageImpl> IPackageImpl::instance()
@@ -116,31 +136,58 @@ namespace packagemanager
 
         return packageImpl;
     }
-    bool PackageImpl::populateConfigValues(const std::string &configjsonfile, ConfigMetaData &configMetadata /* out*/)
+    bool PackageImpl::populateConfigValues(const std::string &packageId, const std::string &version, ConfigMetaData &configMetadata /* out*/)
     {
-        DEBUG("Populating config values from: ", configjsonfile);
+        DEBUG("Populating config values for : ", packageId);
+        std::string unpackedPath;
+        uint32_t result = executor.GetAppInstalledPath(packageId, version, unpackedPath); // Assuming appPath is the unpacked path
+
+        if (result == RETURN_ERROR)
+        {
+            ERROR("Failed to get installed path for app ", packageId);
+            return false;
+        }
+        configMetadata.appPath = unpackedPath;
+        std::string configPath;
+        if (executor.GetAppConfigPath(unpackedPath, configPath) == RETURN_ERROR)
+        {
+            ERROR("Failed to find config path for app ", packageId);
+            return false;
+        }
+
         try
         {
             boost::property_tree::ptree pt;
-            boost::property_tree::read_json(configjsonfile, pt);
+            boost::property_tree::read_json(configPath, pt);
 
-            boost::property_tree::ptree envObject = pt.get_child("process.env", boost::property_tree::ptree());
+            boost::property_tree::ptree envObject;
+            auto envOpt = pt.get_child_optional("process.env");
             std::vector<std::string> envVars;
-            for (const auto &item : envObject)
+            if (envOpt)
             {
-                DEBUG("Adding environment variable: ", item.second.data());
-                envVars.push_back(item.second.data());
+                envObject = *envOpt;
+                for (const auto &item : envObject)
+                {
+                    DEBUG("Adding environment variable: ", item.second.data());
+                    envVars.push_back(item.second.data());
+                }
             }
             configMetadata.envVars = envVars;
-            envObject = pt.get_child("process.args", boost::property_tree::ptree());
+            auto argsOpt = pt.get_child_optional("process.args");
             std::string launchCommand;
-            for (const auto &item : envObject)
+            if (argsOpt)
             {
-                launchCommand += item.second.data() + " ";
+                envObject = *argsOpt;
+                for (const auto &item : envObject)
+                {
+                    launchCommand += item.second.data() + " ";
+                }
             }
             DEBUG(" Adding launch command: ", launchCommand);
             configMetadata.command = launchCommand;
-
+            configMetadata.appType = INTERACTIVE;
+            configMetadata.wanLanAccess = true;
+            configMetadata.thunder = true;
             return true;
         }
         catch (const std::exception &e)
@@ -148,5 +195,10 @@ namespace packagemanager
             ERROR("Error populating config values: ", e.what());
             return false;
         }
+    }
+    Result PackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
+    {
+        INFO("PackageImpl GetFileMetadata, packageId: ", packageId, " version: ", version, " fileLocator: ", fileLocator);
+        return populateConfigValues(packageId, version, configMetadata) ? SUCCESS : FAILED;
     }
 }

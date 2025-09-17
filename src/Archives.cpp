@@ -2,7 +2,8 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
- * Copyright 2021 Liberty Global Service B.V.
+ *  Copyright 2025 RDK Management
+ *  Copyright 2021 Liberty Global Service B.V.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,108 +25,78 @@
 #include <archive_entry.h>
 
 #include <memory>
-#include <cassert>
 
 namespace packagemanager
 {
     namespace Archive
     {
+        static constexpr int BLOCK_SIZE = 10240;
+        static constexpr int ARCHIVE_FLAGS = ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS;
 
-        namespace
-        { // anonymous
-
-            class Archive
-            {
-            public:
-                Archive(const std::string &filePath) : theArchive{archive_read_new()}
-                {
-                    assert(theArchive);
-                    archive_read_support_format_tar(theArchive);
-                    archive_read_support_filter_gzip(theArchive);
-
-                    static constexpr int BLOCK_SIZE = 10240;
-                    if (archive_read_open_filename(theArchive, filePath.c_str(), BLOCK_SIZE) != ARCHIVE_OK)
-                    {
-                        std::string message = std::string{} + "error opening file " + archive_error_string(theArchive);
-                        throw ArchiveError(message);
-                    }
-                    DEBUG("[Archive] archive opened  %s", filePath);
-                }
-
-                Archive(const Archive &other) = delete;
-                Archive &operator=(const Archive &other) = delete;
-
-                ~Archive()
-                {
-                    if (theArchive)
-                    {
-                        archive_read_close(theArchive);
-                        archive_read_free(theArchive);
-                    }
-                }
-
-                void extractTo(const std::string &destination)
-                {
-                    struct archive_entry *entry{};
-
-                    while (true)
-                    {
-                        auto readHeaderResult = archive_read_next_header(theArchive, &entry);
-
-                        if (readHeaderResult == ARCHIVE_EOF)
-                        {
-                            DEBUG("archive read successfully");
-                            break;
-                        }
-                        else if (readHeaderResult != ARCHIVE_OK && readHeaderResult != ARCHIVE_WARN)
-                        {
-                            std::string message = std::string{} + "error while reading entry " + archive_error_string(theArchive);
-                            throw ArchiveError(message);
-                        }
-                        else if (readHeaderResult == ARCHIVE_WARN)
-                        {
-                            WARNING("Warning while reading entry ", archive_error_string(theArchive));
-                        }
-
-                        std::string destPath{destination + archive_entry_pathname(entry)};
-                        archive_entry_set_pathname(entry, destPath.c_str());
-
-                        const char *origHardlink = archive_entry_hardlink(entry);
-                        if (origHardlink)
-                        {
-                            std::string destPathHardLink{destination + '/' + origHardlink};
-                            archive_entry_set_hardlink(entry, destPathHardLink.c_str());
-                        }
-
-                        auto extractStatus = archive_read_extract(theArchive, entry, flags);
-                        if (extractStatus == ARCHIVE_OK || extractStatus == ARCHIVE_WARN)
-                        {
-                            DEBUG("extracted: ", archive_entry_pathname(entry));
-                            if (extractStatus == ARCHIVE_WARN)
-                            {
-                                WARNING("Warning while extracting ", archive_error_string(theArchive));
-                            }
-                        }
-                        else
-                        {
-                            std::string message = std::string{} + "error while extracting " + archive_error_string(theArchive);
-                            throw ArchiveError(message);
-                        }
-                    }
-                }
-
-            private:
-                static constexpr int flags = ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS;
-
-                struct archive *theArchive{};
-            };
-
-        } // namespace anonymous
-
-        void unpack(const std::string &filePath, const std::string &destinationDir)
+        int unpackArchive(const std::string &archivePath, const std::string &destinationPath)
         {
-            Archive archive{filePath};
-            archive.extractTo(destinationDir);
+            int result = 0;
+            struct archive *theArchive = archive_read_new();
+            archive_read_support_format_tar(theArchive);
+            archive_read_support_filter_gzip(theArchive);
+
+            // Read the archive
+            if (archive_read_open_filename(theArchive, archivePath.c_str(), BLOCK_SIZE) != ARCHIVE_OK)
+            {
+                ERROR("Failed to open archive: ", archive_error_string(theArchive));
+                return result;
+            }
+            DEBUG("Archive opened successfully ", archivePath.c_str());
+
+            // Extract the contents
+            struct archive_entry *entry{};
+            while (true)
+            {
+                auto readHeaderResult = archive_read_next_header(theArchive, &entry);
+
+                if (readHeaderResult == ARCHIVE_EOF)
+                {
+                    DEBUG("archive read successfully");
+                    result = 1;
+                    break;
+                }
+                else if (readHeaderResult != ARCHIVE_OK && readHeaderResult != ARCHIVE_WARN)
+                {
+                    ERROR("error while reading entry  ", archive_error_string(theArchive));
+                }
+                else if (readHeaderResult == ARCHIVE_WARN)
+                {
+                    WARNING("Warning while reading entry ", archive_error_string(theArchive));
+                }
+
+                std::string destPath{destinationPath + archive_entry_pathname(entry)};
+                archive_entry_set_pathname(entry, destPath.c_str());
+
+                const char *origHardlink = archive_entry_hardlink(entry);
+                if (origHardlink)
+                {
+                    std::string destPathHardLink{destinationPath + '/' + origHardlink};
+                    archive_entry_set_hardlink(entry, destPathHardLink.c_str());
+                }
+
+                auto extractStatus = archive_read_extract(theArchive, entry, ARCHIVE_FLAGS);
+                if (extractStatus == ARCHIVE_OK || extractStatus == ARCHIVE_WARN)
+                {
+                    DEBUG("extracted: %s", archive_entry_pathname(entry));
+                    if (extractStatus == ARCHIVE_WARN)
+                    {
+                        WARNING("Warning while extracting ", archive_error_string(theArchive));
+                    }
+                }
+                else
+                {
+                    ERROR("Error while extracting ", archive_error_string(theArchive));
+                }
+            }
+            //Clean up any open handles
+            archive_read_close(theArchive);
+            archive_read_free(theArchive);
+            return result;
         }
 
     } // namespace Archive
