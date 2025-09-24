@@ -1,0 +1,40 @@
+name: Google Test
+
+on:
+  push:
+    branches: [ "develop","main" ]
+  pull_request:
+    branches: [ "develop","main" ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest 
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: |
+          set -x
+          sudo apt-get update -y
+          sudo apt install -y libsqlite3-dev libboost-dev libboost-system-dev libboost-filesystem-dev libarchive-dev
+          sudo apt-get install -y lcov
+
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DLIBPACKAGE_L1_TESTS=ON -DCMAKE_CXX_STANDARD=14 -DCMAKE_CXX_FLAGS="-std=c++14" -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g" ..
+          make
+          ./tests/PackageImplTest
+      - name: Generate Code Coverage
+        run: |
+          lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: build/coverage.info
+
