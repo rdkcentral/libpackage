@@ -1,0 +1,164 @@
+/*
+ * If not stated otherwise in this file or this component's LICENSE file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2021 Liberty Global Service B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "Config.h"
+#include "Debug.h"
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
+#include <sstream>
+
+namespace packagemanager
+{
+
+    namespace
+    { // anonymous
+
+        const std::string APPS_PATH_KEY_NAME{"appspath"};
+        const std::string DB_PATH_KEY_NAME{"dbpath"};
+        const std::string DATA_PATH_KEY_NAME{"datapath"};
+        const std::string ANNOTATIONS_FILE_KEY_NAME{"annotationsFile"};
+        const std::string ANNOTATIONS_REGEX_KEY_NAME{"annotationsRegex"};
+
+        void assureEndsWithSlash(std::string &str)
+        {
+            if ((!str.empty()) && str.back() != '/')
+            {
+                str += '/';
+            }
+        }
+
+    } // namespace anonymous
+
+    Config::Config(const std::string &aConfig)
+    {
+        std::stringstream ss{aConfig};
+        boost::property_tree::ptree pt;
+
+        try
+        {
+            boost::property_tree::read_json(ss, pt);
+
+            using boost::property_tree::ptree;
+            ptree::const_iterator end = pt.end();
+
+            for (auto it = pt.begin(); it != end; ++it)
+            {
+                if (it->first == APPS_PATH_KEY_NAME)
+                {
+                    appsPath = it->second.get_value<std::string>();
+                    assureEndsWithSlash(appsPath);
+                    appsTmpPath = appsPath + "tmp/";
+
+                    DEBUG("appsPath ", appsPath);
+                    DEBUG("appsTmpPath ", appsTmpPath);
+                }
+                else if (it->first == DB_PATH_KEY_NAME)
+                {
+                    databasePath = it->second.get_value<std::string>();
+                    assureEndsWithSlash(databasePath);
+                    DEBUG("databasePath ", databasePath);
+                }
+                else if (it->first == ANNOTATIONS_FILE_KEY_NAME)
+                {
+                    annotationsFile = it->second.get_value<std::string>();
+                    DEBUG("annotationsFile ", annotationsFile);
+                }
+                else if (it->first == ANNOTATIONS_REGEX_KEY_NAME)
+                {
+                    annotationsRegex = it->second.get_value<std::string>();
+                    DEBUG("annotationsRegex ", annotationsRegex);
+                }
+                else if (it->first == DACBUNDLEPLATFORMNAMEOVERRIDE_KEY_NAME)
+                {
+                    dacBundlePlatformNameOverride = it->second.get_value<std::string>();
+                    DEBUG("dacBundlePlatformNameOverride ", dacBundlePlatformNameOverride);
+                }
+                else if (it->first == DACBUNDLEFIRMWARECOMPATIBILITYKEY_KEY_NAME)
+                {
+                    dacBundleFirmwareCompatibilityKey = it->second.get_value<std::string>();
+                    DEBUG("dacBundleFirmwareCompatibilityKey ", dacBundleFirmwareCompatibilityKey);
+                }
+                else if (it->first == CONFIG_URL_KEY_NAME)
+                {
+                    configUrl = it->second.get_value<std::string>();
+                }
+            }
+        }
+        catch (std::exception &exc)
+        {
+            ERROR("parsing config exception: ", exc.what());
+        }
+    }
+
+    const std::string &Config::getDatabasePath() const
+    {
+        return databasePath;
+    }
+
+    const std::string &Config::getAppsTmpPath() const
+    {
+        return appsTmpPath;
+    }
+
+    const std::string &Config::getAppsPath() const
+    {
+        return appsPath;
+    }
+
+    const std::string &Config::getAnnotationsFile() const
+    {
+        return annotationsFile;
+    }
+
+    const std::string &Config::getAnnotationsRegex() const
+    {
+        return annotationsRegex;
+    }
+
+    
+
+    const std::string &Config::getDacBundlePlatformNameOverride() const
+    {
+        return dacBundlePlatformNameOverride;
+    }
+
+    const std::string &Config::getDacBundleFirmwareCompatibilityKey() const
+    {
+        return dacBundleFirmwareCompatibilityKey;
+    }
+
+    const std::string &Config::getConfigUrl() const
+    {
+        return configUrl;
+    }
+
+    std::ostream &operator<<(std::ostream &out, const Config &config)
+    {
+        return out << "[appsPath: " << config.appsPath << " tmpPath: " << config.appsTmpPath 
+                   << " annotationsFile: " << config.annotationsFile
+                   << " annotationsRegex: " << config.annotationsRegex
+                   << " dacBundlePlatformNameOverride: " << config.dacBundlePlatformNameOverride
+                   << " dacBundleFirmwareCompatibilityKey: " << config.dacBundleFirmwareCompatibilityKey
+                   << " configUrl: " << config.configUrl
+                   << "]";
+    };
+
+} // namespace packagemanager
