@@ -57,7 +57,6 @@ target_link_libraries(Package
 install(TARGETS Package DESTINATION lib)
 install(FILES
     include/PackageImpl.h
-    include/IPackageImpl.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 add_subdirectory(app)
