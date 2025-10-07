@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "IPackageImpl.h"
 #include "Executor.h"
 namespace packagemanager
 {
