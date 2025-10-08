@@ -2,7 +2,7 @@ name: Google Test
 
 on:
   push:
-    branches: [ "develop","main" ]
+    branches: [ "develop","main" ,"topic/RDKECOREMW-960" ]
   pull_request:
     branches: [ "develop","main" ]
   workflow_dispatch:
@@ -12,6 +12,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Checkout eshelpers 
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/eshelpers
+          path: eshelpers
+          ref: topic/RDKECOREMW-864
+      
       - name: Install Dependencies
         run: |
           set -x
@@ -23,7 +31,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DLIBPACKAGE_L1_TESTS=ON -DCMAKE_CXX_STANDARD=14 -DCMAKE_CXX_FLAGS="-std=c++14" -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g" ..
+          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DLIBPACKAGE_L1_TESTS=ON -DCMAKE_CXX_STANDARD=14 -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g -std=c++14 -I${GITHUB_WORKSPACE}/eshelpers/packager" ..
           make
           ./tests/PackageImplTest
       - name: Generate Code Coverage
