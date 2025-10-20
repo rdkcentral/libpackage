@@ -18,7 +18,7 @@
  */
 
 #include "PackageImpl.h"
-
+#include <sys/mount.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -97,13 +97,63 @@ namespace packagemanager
     Result PackageImpl::Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &appConfig, NameValues &additionalLocks)
     {
         INFO("PackageImpl Lock, packageId: ", packageId, " version: ", version);
+        // Let us get application details first
+        DataStorage::AppDetails appDetails;
+
         if (populateConfigValues(packageId, version, appConfig))
         {
             unpackedPath = appConfig.appPath;
+
+            if (executor.GetAppDetails(packageId, appDetails) == RETURN_SUCCESS)
+            {
+                if (appDetails.type == "application/dac.webapp")
+                    bindApplicationToRuntime(packageId, version, unpackedPath);
+            }
             return SUCCESS;
         }
+
         ERROR("Failed to lock packageId: ", packageId, " version: ", version);
         return FAILED;
+    }
+    bool PackageImpl::bindApplicationToRuntime(const std::string &appId, const std::string &version, std::string &appPath)
+    {
+        /*
+         * The following steps needs to be performed
+         * 1. Create a directory in tmp and copy the configuration of runtime bundle to there
+         * 2. Override app configuration if any present to the copied configuration
+         * 3. Mount the app rootfs/webapp  to the copied configuration at /webapp directory
+         *  Now return the app Path as wpe path.
+         * 5. Now you can launch webapp from /webapp
+         */
+
+        std::string runtimePath;
+        uint32_t status = executor.GetAppInstalledPath("com.rdk.app.wpebrowser_2.38", "1.0.1", runtimePath);
+        INFO(" Runtime path obtained: status ", status, ", runtime path : ", runtimePath);
+
+        status = mount((appPath + "/rootfs/webapp").c_str(), (runtimePath + "/rootfs/webapp").c_str(), NULL, MS_BIND, NULL);
+        INFO("Mounted webapp directory, Status ", status);
+
+        appPath = runtimePath;
+
+        return true;
+    }
+    Result PackageImpl::Unlock(const std::string &packageId, const std::string &version)
+    {
+        INFO("PackageImpl Unlock, packageId: ", packageId, " version: ", version);
+        DataStorage::AppDetails appDetails;
+        if (executor.GetAppDetails(packageId, appDetails) == RETURN_SUCCESS)
+        {
+            if (appDetails.type == "application/dac.webapp")
+            {
+                // Remove all the bindings
+                std::string runtimePath;
+                uint32_t status = executor.GetAppInstalledPath("com.rdk.app.wpebrowser_2.38", "1.0.1", runtimePath);
+                INFO(" Runtime path obtained: status ", status, ", runtime path : ", runtimePath);
+
+                status = umount((runtimePath + "/rootfs/webapp").c_str());
+                INFO("Unmounted webapp directory, Status ", status);
+            }
+        }
     }
 
     Result PackageImpl::Uninstall(const std::string &packageId)

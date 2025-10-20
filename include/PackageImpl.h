@@ -35,13 +35,14 @@ namespace packagemanager
         Result Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata) override;
         Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) override;
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
-
+        Result Unlock(const std::string &packageId, const std::string &version) override;
         Result Uninstall(const std::string &packageId) override;
 
     private:
         packagemanager::Executor executor;
         bool populateConfigValues(const std::string &packageId, const std::string &version, ConfigMetaData &configMetadata /* out*/);
 
+        bool bindApplicationToRuntime(const std::string &appId, const std::string &version, std::string &appPath);
     };
 
 }
