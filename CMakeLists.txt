@@ -18,23 +18,20 @@
 project(Package)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_subdirectory(thirdparty)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 set(PACKAGE_SRCS
     src/PackageImpl.cpp
-    src/SqlDataStorage.cpp
-    src/Filesystem.cpp
-    src/File.cpp
-    src/Archives.cpp
-    src/Executor.cpp
+    src/RFileSystem.cpp
+    src/RalfExecutor.cpp
     src/Config.cpp
+#   src/configspec.cpp
 )
-find_package(Sqlite REQUIRED)
-find_package(Boost COMPONENTS filesystem REQUIRED)
 
-#This is set only for development in apple 
-#set(LibArchive_INCLUDE_DIR "/opt/homebrew/opt/libarchive/include")
-find_package(LibArchive REQUIRED)
+#find_package(ralf-utils REQUIRED)
+
+add_library(Package SHARED ${PACKAGE_SRCS})
 
 include_directories(include)
 include(GNUInstallDirs)
@@ -43,16 +40,12 @@ add_library(Package SHARED ${PACKAGE_SRCS})
 
 set_target_properties(Package PROPERTIES VERSION 1.0.0 SOVERSION 1)
 target_include_directories(Package
-    PRIVATE ${LibArchive_INCLUDE_DIR}
     PRIVATE ${Boost_INCLUDE_DIRS}
-    PRIVATE ${SQLITE_INCLUDE_DIRS}
 )
 
 target_link_libraries(Package
-    PRIVATE ${LibArchive_LIBRARIES}
-    PRIVATE ${Boost_FILESYSTEM_LIBRARY}
     PRIVATE ${Boost_SYSTEM_LIBRARY}
-    PRIVATE ${SQLITE_LIBRARIES}
+    PRIVATE ralf
 )
 install(TARGETS Package DESTINATION lib)
 install(FILES
