@@ -18,7 +18,6 @@
 project(Package)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-add_subdirectory(thirdparty)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 set(PACKAGE_SRCS
@@ -30,6 +29,7 @@ set(PACKAGE_SRCS
 )
 
 #find_package(ralf-utils REQUIRED)
+
 
 add_library(Package SHARED ${PACKAGE_SRCS})
 

@@ -107,7 +107,15 @@ namespace packagemanager
             ERROR("parsing config exception: ", exc.what());
         }
     }
-
+   void Config::setPackageName(const std::string& name) 
+  {
+   
+     packageName = name; //Package name will be from  <id,version> 
+  }
+    const std::string &Config::getPackageName() const 
+   {
+     return packageName; 
+   }
     const std::string &Config::getDatabasePath() const
     {
         return databasePath;

@@ -20,7 +20,8 @@
 #pragma once
 
 #include "IPackageImpl.h"
-#include "Executor.h"
+
+#include "RalfExecutor.h"
 namespace packagemanager
 {
 
@@ -39,9 +40,8 @@ namespace packagemanager
         Result Uninstall(const std::string &packageId) override;
 
     private:
-        packagemanager::Executor executor;
+        packagemanager::RalfExecutor ralfexecutor;
         bool populateConfigValues(const std::string &packageId, const std::string &version, ConfigMetaData &configMetadata /* out*/);
-
     };
 
 }

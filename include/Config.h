@@ -37,6 +37,8 @@ namespace packagemanager
         Config() = default;
         Config(const std::string &aConfig);
 
+        void setPackageName(const std::string& name);
+        const std::string &getPackageName() const;
         const std::string &getDatabasePath() const;
         const std::string &getAppsTmpPath() const;
         const std::string &getAppsPath() const;
@@ -52,6 +54,7 @@ namespace packagemanager
         friend std::ostream &operator<<(std::ostream &out, const Config &config);
 
     private:
+        std::string packageName;
         std::string databasePath;
         std::string appsPath;
         std::string appsTmpPath;

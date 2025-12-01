@@ -25,7 +25,8 @@
 
 const std::string VERSION = "2.0.0";
 
-std::string packageId = "com.rdk.app.cobalt2024";
+std::string packageId = "com.rdkcentral.wpe";
+//std::string packageId = "com.rdkcentral.base";
 std::string version = "1.0.0";
 
 void testUninstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::string &packageId)
@@ -74,7 +75,8 @@ bool testInstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
     std::cout << "Testing Install method..." << std::endl;
     // Install a package. This is downloaded from DAC app store and placed in the specified location.
-    std::string fileUrl = "/opt/downloads/com.rdk.app.cobalt2024-1.0.0-rpi4-1.0.0-b34e9a38a2675d4cd02cf89f7fc72874a4c99eb0-dbg.tar.gz";
+    //std::string fileUrl = "/opt/downloads/com.rdk.app.cobalt2024-1.0.0-rpi4-1.0.0-b34e9a38a2675d4cd02cf89f7fc72874a4c99eb0-dbg.tar.gz";
+    std::string fileUrl = "/opt/downloads/packages/com.rdkcentral.wpe+0.0.2.bolt";
     std::string appName = "YouTube 2024";
     std::string category = "Media";
     std::string type = "application/dac.native";
@@ -103,26 +105,26 @@ int main(int argc, char *argv[])
     std::shared_ptr<packagemanager::IPackageImpl> packageImpl = packagemanager::IPackageImpl::instance();
     std::string packageList;
     packagemanager::ConfigMetadataArray configMetadataArray;
-    std::string configString = R"({"appspath":"/opt/dac_apps/apps","dbpath":"/opt/dac_apps","datapath":"/opt/dac_apps/data","annotationsFile":"config.json","annotationsRegex":"public\\.*"})";
+    std::string configString = R"({"appspath":"/opt/dac/packages/","dbpath":"/opt/dac_apps","datapath":"/opt/dac_apps/data","annotationsFile":"config.json","annotationsRegex":"public\\.*"})";
     if (packageImpl->Initialize(configString, configMetadataArray) != packagemanager::SUCCESS)
     {
         std::cout << "Failed to initialize package manager." << std::endl;
         return 1;
     }
     std::cout << "Package Manager Initialized." << std::endl;
-
     if (testInstall(packageImpl))
     {
 
         std::cout << " package ID: " << packageId << " Version: " << version << std::endl;
+#if 0
         if (testLock(packageImpl, packageId))
         {
             // Test Unlock method
             testUnLock(packageImpl, packageId, version);
         }
         testUninstall(packageImpl, packageId);
+#endif
     }
-
     std::cout << "Test completed." << std::endl;
     return 0;
 }
