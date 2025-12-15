@@ -28,19 +28,19 @@ else()
     message(STATUS "Local mount is disabled")
 endif(ENABLE_LOCAL_MOUNT)
 
-add_library(libpackage SHARED ${PACKAGE_SRCS})
-set_target_properties(libpackage PROPERTIES VERSION 1.1.0 SOVERSION 1)
+add_library(Package SHARED ${PACKAGE_SRCS})
+set_target_properties(Package PROPERTIES VERSION 1.1.0 SOVERSION 1)
 
 
 if(DAC_APP_PATH)
-    target_compile_definitions(libpackage PRIVATE DAC_APP_PATH="${DAC_APP_PATH}")
+    target_compile_definitions(Package PRIVATE DAC_APP_PATH="${DAC_APP_PATH}")
 endif()
 
 
-target_link_libraries(libpackage PRIVATE ralf jsoncpp)
-target_include_directories(libpackage PRIVATE  ${LIBPACKAGE_BASE_DIR}/include/ralf)
+target_link_libraries(Package PRIVATE ralf jsoncpp)
+target_include_directories(Package PRIVATE  ${LIBPACKAGE_BASE_DIR}/include/ralf)
 
-install(TARGETS libpackage DESTINATION lib)
+install(TARGETS Package DESTINATION lib)
 
 install(FILES
         ${LIBPACKAGE_BASE_DIR}/include/ralf/RalfPackageImpl.h

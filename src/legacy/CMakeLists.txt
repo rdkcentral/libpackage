@@ -36,22 +36,22 @@ find_package(LibArchive REQUIRED)
 include_directories(include)
 include(GNUInstallDirs)
 
-add_library(libpackage SHARED ${PACKAGE_SRCS})
+add_library(Package SHARED ${PACKAGE_SRCS})
 
-set_target_properties(libpackage PROPERTIES VERSION 1.0.0 SOVERSION 1)
-target_include_directories(libpackage
+set_target_properties(Package PROPERTIES VERSION 1.0.0 SOVERSION 1)
+target_include_directories(Package
     PRIVATE ${LibArchive_INCLUDE_DIR}
     PRIVATE ${Boost_INCLUDE_DIRS}
     PRIVATE ${SQLITE_INCLUDE_DIRS}
 )
 
-target_link_libraries(libpackage
+target_link_libraries(Package
     PRIVATE ${LibArchive_LIBRARIES}
     PRIVATE ${Boost_FILESYSTEM_LIBRARY}
     PRIVATE ${Boost_SYSTEM_LIBRARY}
     PRIVATE ${SQLITE_LIBRARIES}
 )
-install(TARGETS libpackage DESTINATION lib)
+install(TARGETS Package DESTINATION lib)
 install(FILES
     ${LIBPACKAGE_BASE_DIR}/include/legacy/PackageImpl.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
