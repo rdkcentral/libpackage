@@ -249,6 +249,7 @@ namespace packagemanager
             {
                 std::cerr << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
                 configMetadata.ralfPkgPath = tempFilePath.string();
+		unpackedPath = packagePath.parent_path().string();
                 return Result::SUCCESS;
             }
         }
