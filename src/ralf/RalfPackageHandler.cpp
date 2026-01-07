@@ -37,6 +37,7 @@ namespace packagemanager
 
     int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &pacakgeList)
     {
+        std::cout << "[libPackage] Looking for installed packages in  " << AppInstallationPath << std::endl;
         for (const auto &entry : std::filesystem::recursive_directory_iterator(AppInstallationPath))
         {
             if (std::filesystem::is_regular_file(entry.path()) && entry.path().filename() == RalfPackage)
@@ -151,7 +152,7 @@ namespace packagemanager
 
                     if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
                     {
-                            std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: " << depPackageId << std::endl;
+                        std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: " << depPackageId << std::endl;
                         return Result::FAILED;
                     }
                 }
@@ -249,7 +250,7 @@ namespace packagemanager
             {
                 std::cerr << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
                 configMetadata.ralfPkgPath = tempFilePath.string();
-		unpackedPath = packagePath.parent_path().string();
+                unpackedPath = packagePath.parent_path().string();
                 return Result::SUCCESS;
             }
         }
