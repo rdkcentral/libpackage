@@ -268,7 +268,7 @@ namespace packagemanager
         auto package = ralf::Package::openWithoutVerification(packagePath);
         if (!package)
         {
-            std::cerr << "[libPackage] Failed to open package for locking: " << package.error().what() << std::endl;
+            std::cerr << "[libPackage] Failed to open package : " << package.error().what() << std::endl;
             return Result::FAILED;
         }
         packageId = package->id();
@@ -281,7 +281,7 @@ namespace packagemanager
     {
         auto packageId = package.id();
         auto version = package.version().toString();
-        std::cout << "[libPackage] Locking  packages." << packageId << ", version " << version << std::endl;
+        std::cout << "[libPackage] Locking packages." << packageId << ", version " << version << std::endl;
 
         std::string pkgVerKey = packageId + "_" + version;
         // Check if already mounted
