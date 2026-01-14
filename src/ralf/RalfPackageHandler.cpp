@@ -271,13 +271,6 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open package for locking: " << package.error().what() << std::endl;
             return Result::FAILED;
         }
-        // Now let us fill the metadata part
-        auto metadata = package->metaData();
-        if (!metadata)
-        {
-            std::cerr << "[libPackage] Failed to read package metadata: " << metadata.error().what() << std::endl;
-            return Result::FAILED;
-        }
         packageId = package->id();
         version = package->version().toString();
         configMetadata.appPath = packagePath.string();
