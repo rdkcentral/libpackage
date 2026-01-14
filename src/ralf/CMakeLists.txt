@@ -19,6 +19,8 @@
 find_package(libralf REQUIRED)
 set (PACKAGE_SRCS RalfPackageHandler.cpp)
 
+option(ENABLE_LOCAL_MOUNT "Enable local mount support" OFF)
+option(DISABLE_DEPENDENCY_CHECK "Disable dependency check" ON)
 if(ENABLE_LOCAL_MOUNT)
     #print a message 
     message(STATUS "Local mount is enabled")    
@@ -27,6 +29,13 @@ if(ENABLE_LOCAL_MOUNT)
 else()
     message(STATUS "Local mount is disabled")
 endif(ENABLE_LOCAL_MOUNT)
+
+if(DISABLE_DEPENDENCY_CHECK)
+    message(STATUS "Dependency check is disabled")
+    add_definitions("-DDISABLE_DEPENDENCY_CHECK")
+else()
+    message(STATUS "Dependency check is enabled")
+endif()
 
 add_library(Package SHARED ${PACKAGE_SRCS})
 set_target_properties(Package PROPERTIES VERSION 1.1.0 SOVERSION 1)
