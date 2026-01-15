@@ -29,7 +29,6 @@
 #include <sys/mount.h>
 #endif
 
-#define DISABLE_DEPENDENCY_CHECK
 namespace packagemanager
 {
     std::string RalfPackageImpl::AppInstallationPath = DAC_APP_PATH;
@@ -137,7 +136,6 @@ namespace packagemanager
         if (package)
         {
 #ifndef DISABLE_DEPENDENCY_CHECK
-
             std::cout << "[libPackage][DEPENDENCY_CHECK] Successfully opened package: " << fileLocator << std::endl;
             auto pkgMetadata = package->metaData();
             if (pkgMetadata)
@@ -146,8 +144,8 @@ namespace packagemanager
                 for (const auto &dependency : dependencies)
                 {
                     // Identify the dependency
-                    std::string depPackageId = dependency.first;
-                    ralf::VersionConstraint depPkgVersion = dependency.second;
+                    auto depPackageId = dependency.first;
+                    auto depPkgVersion = dependency.second;
                     std::string depInstalledVersion;
 
                     if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))

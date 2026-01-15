@@ -20,7 +20,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 cmake_minimum_required(VERSION 3.22)
 
 option(ENABLE_RALF_SUPPORT "Enable RALF support" OFF)
-option(ENABLE_LOCAL_MOUNT "Enable local mount support" OFF)
 
 set(LIBPACKAGE_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 if(ENABLE_RALF_SUPPORT)
