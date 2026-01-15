@@ -76,9 +76,9 @@ namespace packagemanager
     void RalfPackageImpl::getPackageIdAndVersionFromRalfPackage(const std::string &packagePath, std::string &appId, std::string &appVersion)
     {
         std::filesystem::path p(packagePath);
-        std::filesystem::path parentPath = p.parent_path();
+        auto parentPath = p.parent_path();
         appVersion = parentPath.filename().string();
-        std::filesystem::path grandParentPath = parentPath.parent_path();
+        auto grandParentPath = parentPath.parent_path();
         appId = grandParentPath.filename().string();
     }
 
@@ -106,7 +106,7 @@ namespace packagemanager
         {
             std::vector<std::string> installedPackages;
             // Let us get package metadata of all installed packages
-            int count = getInstalledPackages(installedPackages);
+            auto count = getInstalledPackages(installedPackages);
             std::cout << "[libPackage] Found " << count << " installed packages." << std::endl;
 
             for (auto packagePath : installedPackages)
@@ -176,15 +176,15 @@ namespace packagemanager
         std::cout << "[libPackage] Successfully identified dependencies for package: " << fileLocator << std::endl;
 
         // Step 3: Create the directory structure
-        std::filesystem::path packagePath = std::filesystem::path(AppInstallationPath) / packageId / version;
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version;
         std::filesystem::create_directories(packagePath);
 
         // Step 4: Copy the package to the installation directory
-        std::filesystem::path destRalfPackagePath = packagePath / RalfPackage;
+        auto destRalfPackagePath = packagePath / RalfPackage;
         try
         {
             std::filesystem::copy_file(fileLocator, destRalfPackagePath, std::filesystem::copy_options::overwrite_existing);
-            std::string appPath = destRalfPackagePath.string();
+            auto appPath = destRalfPackagePath.string();
             configMetadata.appPath = std::move(appPath);
             std::cout << "[libPackage] Installed package to: " << configMetadata.appPath << std::endl;
         }
@@ -203,7 +203,7 @@ namespace packagemanager
     {
         std::cout << "[libPackage] RalfPackageImpl::Uninstall called with packageId: " << packageId << std::endl;
         // For the time being, we have to remove all the files in the package installation path, until we get a version with specific version to uninstall
-        std::filesystem::path packagePath = std::filesystem::path(AppInstallationPath) / packageId;
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId;
         try
         {
             std::filesystem::remove_all(packagePath);
@@ -233,7 +233,7 @@ namespace packagemanager
     {
         std::cout << "[libPackage] RalfPackageImpl::Lock called with packageId: " << packageId << ", version: " << version << std::endl;
 
-        std::filesystem::path packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
         auto package = ralf::Package::openWithoutVerification(packagePath);
         if (!package)
         {
@@ -241,11 +241,11 @@ namespace packagemanager
             return Result::FAILED;
         }
         std::vector<RalfPackageInfo> mountPkgList;
-        bool status = lockPackage(package.value(), mountPkgList);
+        auto status = lockPackage(package.value(), mountPkgList);
         if (status)
         {
             // We need to dump this to a temp file and add it as par of configMetadata
-            std::filesystem::path tempFilePath = std::filesystem::temp_directory_path() / (packageId + "_" + version + "_metadata.json");
+            auto tempFilePath = std::filesystem::temp_directory_path() / (packageId + "_" + version + "_metadata.json");
             if (serializeToJson(mountPkgList, tempFilePath))
             {
                 std::cerr << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
@@ -264,16 +264,24 @@ namespace packagemanager
 
     Result RalfPackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
     {
-        std::filesystem::path p = std::filesystem::path(fileLocator) / packageId / version;
-        configMetadata.appPath = p.string();
+        auto packagePath = std::filesystem::path(fileLocator);
+        auto package = ralf::Package::openWithoutVerification(packagePath);
+        if (!package)
+        {
+            std::cerr << "[libPackage] Failed to open package : " << package.error().what() << std::endl;
+            return Result::FAILED;
+        }
+        packageId = package->id();
+        version = package->version().toString();
+        configMetadata.appPath = packagePath.string();
         return Result::SUCCESS;
     }
 
     bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo)
     {
-        std::string packageId = package.id();
-        std::string version = package.version().toString();
-        std::cout << "[libPackage] Locking  packages." << packageId << ", version " << version << std::endl;
+        auto packageId = package.id();
+        auto version = package.version().toString();
+        std::cout << "[libPackage] Locking packages." << packageId << ", version " << version << std::endl;
 
         std::string pkgVerKey = packageId + "_" + version;
         // Check if already mounted
@@ -324,7 +332,7 @@ namespace packagemanager
         }
 
         // Let us mount the package
-        std::filesystem::path mountPath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / pkgVerKey / "rootfs";
+        auto mountPath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / pkgVerKey / "rootfs";
         std::filesystem::create_directories(mountPath);
         std::cout << "[libPackage] Creating mount directory: " << mountPath << std::endl;
 #ifdef ENABLE_LOCAL_MOUNT
@@ -355,7 +363,7 @@ namespace packagemanager
 #endif
         std::unique_ptr<MountedPackageInfo> mountInfo = std::make_unique<MountedPackageInfo>();
 
-        std::filesystem::path configPath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / pkgVerKey / RDK_PACKAGE_CONFIG;
+        auto configPath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / pkgVerKey / RDK_PACKAGE_CONFIG;
         if (dumpPackageInfo(package, configPath))
         {
             mountInfo->pkgJsonPath = configPath.string();
@@ -378,7 +386,7 @@ namespace packagemanager
     }
     bool RalfPackageImpl::unmountDependentPackages(const std::string &packageId, const std::string &version)
     {
-        std::filesystem::path packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
         std::cout << "[libPackage] Unlocking dependencies for package: " << packagePath.string() << std::endl;
 
         auto package = ralf::Package::openWithoutVerification(packagePath);
