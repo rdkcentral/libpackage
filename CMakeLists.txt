@@ -14,53 +14,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-project(Package)
+project(package)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+cmake_minimum_required(VERSION 3.22)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
-set(PACKAGE_SRCS
-    src/PackageImpl.cpp
-    src/SqlDataStorage.cpp
-    src/Filesystem.cpp
-    src/File.cpp
-    src/Archives.cpp
-    src/Executor.cpp
-    src/Config.cpp
-)
-find_package(Sqlite REQUIRED)
-find_package(Boost COMPONENTS filesystem REQUIRED)
+option(ENABLE_RALF_SUPPORT "Enable RALF support" OFF)
 
-#This is set only for development in apple 
-#set(LibArchive_INCLUDE_DIR "/opt/homebrew/opt/libarchive/include")
-find_package(LibArchive REQUIRED)
+set(LIBPACKAGE_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+if(ENABLE_RALF_SUPPORT)
+message(STATUS "RALF support is enabled")
+    add_subdirectory(src/ralf)
+else()
+    message(STATUS "Building without RALF support")
+    include_directories(include/legacy)
+    add_subdirectory(src/legacy)
+endif()
 
-include_directories(include)
-include(GNUInstallDirs)
-
-add_library(Package SHARED ${PACKAGE_SRCS})
-
-set_target_properties(Package PROPERTIES VERSION 1.0.0 SOVERSION 1)
-target_include_directories(Package
-    PRIVATE ${LibArchive_INCLUDE_DIR}
-    PRIVATE ${Boost_INCLUDE_DIRS}
-    PRIVATE ${SQLITE_INCLUDE_DIRS}
-)
-
-target_link_libraries(Package
-    PRIVATE ${LibArchive_LIBRARIES}
-    PRIVATE ${Boost_FILESYSTEM_LIBRARY}
-    PRIVATE ${Boost_SYSTEM_LIBRARY}
-    PRIVATE ${SQLITE_LIBRARIES}
-)
-install(TARGETS Package DESTINATION lib)
-install(FILES
-    include/PackageImpl.h
-    include/IPackageImpl.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-add_subdirectory(app)
+#add_subdirectory(app)
 if(LIBPACKAGE_L1_TESTS)
     add_subdirectory(tests)
 endif()
