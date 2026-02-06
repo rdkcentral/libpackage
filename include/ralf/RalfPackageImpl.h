@@ -25,8 +25,13 @@
 #include <IPackageImpl.h>
 #include <ralf/Package.h>
 #include <ralf/VersionConstraint.h>
+
 #ifndef DAC_APP_PATH
 #define DAC_APP_PATH "/opt/media/apps/"
+#endif
+
+#ifndef RDK_PACKAGE_CERT_PATH
+#define RDK_PACKAGE_CERT_PATH "/etc/rdk/certs"
 #endif
 
 #define RDK_PACKAGE_CONFIG_MIME_TYPE "application/vnd.rdk.package.config.v1+json"
@@ -91,16 +96,68 @@ namespace packagemanager
     private:
         static std::string RalfPackage;
         static std::string AppInstallationPath;
+        static std::string pkgCertDirPath;
+
+        // For package verification
+        ralf::VerificationBundle mVerificationBundle;
 
         std::vector<std::unique_ptr<ConfigMetadataKey> > mInstalledPackages;
 
-        bool lockPackage(const ralf::Package &package, std::vector< RalfPackageInfo> &ralfMountInfo);
+        /**
+         * Initializes the verification bundle by loading certificates from the specified directory.
+         * @return true if at least one certificate was successfully loaded; false otherwise.
+         */
+        bool initilizeVerificationBundle();
+
+        /**
+         * Verifies the package's signature using the initialized verification bundle.
+         * @param package The package to be verified.
+         * @return Result::SUCCESS if the package is verified successfully; Result::FAILED otherwise.
+         */
+        bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo);
+
+        /**
+         * Mounts the dependent packages required by the specified package.
+         * @param packageId The ID of the package whose dependencies are to be mounted.
+         * @param version The version of the package whose dependencies are to be mounted.
+         * @return true if all dependent packages are mounted successfully; false otherwise.
+         */
         bool unmountDependentPackages(const std::string &packageId, const std::string &version);
+
+        /**
+         * Identifies the installed version of a dependent package that satisfies the given version constraint.
+         * @param depPackageId The ID of the dependent package.
+         * @param depPackageVersion The version constraint for the dependent package.
+         * @param depInstalledVersion Output parameter to hold the identified installed version.
+         * @return true if a suitable installed version is found; false otherwise.
+         */
         bool identifyDependencyVersion(const std::string &depPackageId, const ralf::VersionConstraint &depPackageVersion, std::string &depInstalledVersion);
+
+        /**
+         * Dumps the package information to a specified configuration path.
+         * @param package The package whose information is to be dumped.
+         * @param configPath The path where the package information will be dumped.
+         * @return true if the package information is dumped successfully; false otherwise.
+         */
         bool dumpPackageInfo(const ralf::Package &package, const std::filesystem::path &configPath);
+
+        /**
+         * Serializes the list of mounted packages to a JSON file at the specified output path.
+         * @param mountPkgList The list of mounted packages to be serialized.
+         * @param outputPath The path where the JSON file will be created.
+         * @return true if serialization is successful; false otherwise.
+         */
         bool serializeToJson(const std::vector<RalfPackageInfo> &mountPkgList, const std::filesystem::path &outputPath) const;
 #ifdef ENABLE_LOCAL_MOUNT
-        std::string getErofsBlobPath(const std::string &packageId, const std::string &version);
+        ` /**
+           * Constructs the EROFS blob path for the specified package ID and version.
+           * The path is read from the package.erofs file located in the package directory.
+           *
+           * @param packageId The ID of the package.
+           * @param version The version of the package.
+           * @return The constructed EROFS blob path as a string.
+           */
+            std::string getErofsBlobPath(const std::string &packageId, const std::string &version);
 #endif
     };
 

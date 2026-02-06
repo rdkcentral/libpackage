@@ -37,6 +37,13 @@ else()
     message(STATUS "Dependency check is enabled")
 endif()
 
+if(NOT RDK_PACKAGE_CERT_PATH STREQUAL "")
+    message(STATUS "Using custom package certificate path: ${RDK_PACKAGE_CERT_PATH}")
+    add_definitions("-DRDK_PACKAGE_CERT_PATH=\"${RDK_PACKAGE_CERT_PATH}\"")
+else()
+    message(STATUS "Using default package certificate path")
+endif()
+
 add_library(Package SHARED ${PACKAGE_SRCS})
 set_target_properties(Package PROPERTIES VERSION 1.1.0 SOVERSION 1)
 

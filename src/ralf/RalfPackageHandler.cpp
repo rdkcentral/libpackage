@@ -33,6 +33,7 @@ namespace packagemanager
 {
     std::string RalfPackageImpl::AppInstallationPath = DAC_APP_PATH;
     std::string RalfPackageImpl::RalfPackage = "package.ralf";
+    std::string RalfPackageImpl::pkgCertDirPath = RDK_PACKAGE_CERT_PATH;
 
     int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &pacakgeList)
     {
@@ -96,6 +97,10 @@ namespace packagemanager
     {
         std::cout << "[libPackage] RalfPackageImpl::Initialize called with config: " << configStr << std::endl;
         // Check if AppInstallationPath exists
+        if (!initilizeVerificationBundle())
+        {
+            std::cerr << "[libPackage] Failed to initialize verification bundle. No certificates loaded from: " << pkgCertDirPath << std::endl;
+        }
         if (!std::filesystem::exists(AppInstallationPath))
         {
             std::cout << "[libPackage] App installation path does not exist. Creating: " << AppInstallationPath << std::endl;
@@ -123,17 +128,50 @@ namespace packagemanager
         }
         return Result::SUCCESS;
     }
+    bool RalfPackageImpl::initilizeVerificationBundle()
+    {
+        bool certLoaded = false;
+        // Load the certificate from pkgCertDirPath
+        // Iterate through all the certificates in the directory
+        std::filesystem::directory_options options = std::filesystem::directory_options::none;
+        for (auto const &dirEntry : std::filesystem::directory_iterator(pkgCertDirPath, options))
+        {
+            if (dirEntry.is_regular_file())
+            {
+                std::ifstream certFile(dirEntry.path());
+                if (!certFile.is_open())
+                {
+                    std::cerr << "[libPackage] Skipping certificate file: " << dirEntry.path() << std::endl;
+                    continue;
+                }
+                if (dirEntry.is_regular_file())
+                {
+                    auto result = ralf::Certificate::loadFromFile(dirEntry.path().string());
+                    if (!result)
+                    {
+                        std::cerr << "[libPackage] Failed to load certificate from file: " << dirEntry.path() << " Error: " << result.error().what() << std::endl;
+                        continue;
+                    }
+                    mVerificationBundle.addCertificate(result.value());
+                    certLoaded = true;
+
+                    std::cout << "[libPackage] Successfully added certificate from: " << dirEntry.path() << " to verification bundle." << std::endl;
+                }
+            }
+        }
+        return certLoaded;
+    }
 
     Result RalfPackageImpl::Install(const std::string &packageId, const std::string &version, const NameValues &additionalMetadata, const std::string &fileLocator, ConfigMetaData &configMetadata)
     {
         std::cout << "[libPackage] RalfPackageImpl::Install called with packageId: " << packageId << ", version: " << version << ", fileLocator: " << fileLocator << std::endl;
         // Step 1: Verify the package
-        // This is a TODO
+        auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
 
         // Step 2: Get Dependency data for the package. If that is not installed return failure.
-        auto package = ralf::Package::openWithoutVerification(fileLocator);
+        auto package = ralf::Package::open(fileLocator, mVerificationBundle, openFlags);
 
-        if (package)
+        if (package && package->isValid())
         {
 #ifndef DISABLE_DEPENDENCY_CHECK
             std::cout << "[libPackage][DEPENDENCY_CHECK] Successfully opened package: " << fileLocator << std::endl;
@@ -232,12 +270,17 @@ namespace packagemanager
         std::cout << "[libPackage] RalfPackageImpl::Lock called with packageId: " << packageId << ", version: " << version << std::endl;
 
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
-        auto package = ralf::Package::openWithoutVerification(packagePath);
-        if (!package)
+        auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
+
+        // Step 2: Get Dependency data for the package. If that is not installed return failure.
+        auto package = ralf::Package::open(packagePath, mVerificationBundle, openFlags);
+
+        if (!package || !package->isValid())
         {
             std::cerr << "[libPackage] Failed to open package for locking: " << package.error().what() << std::endl;
             return Result::FAILED;
         }
+
         std::vector<RalfPackageInfo> mountPkgList;
         auto status = lockPackage(package.value(), mountPkgList);
         if (status)
@@ -263,8 +306,9 @@ namespace packagemanager
     Result RalfPackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
     {
         auto packagePath = std::filesystem::path(fileLocator);
-        auto package = ralf::Package::openWithoutVerification(packagePath);
-        if (!package)
+        auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
+        auto package = ralf::Package::open(packagePath, mVerificationBundle, openFlags);
+        if (!package || !package->isValid())
         {
             std::cerr << "[libPackage] Failed to open package : " << package.error().what() << std::endl;
             return Result::FAILED;
@@ -320,9 +364,15 @@ namespace packagemanager
                 std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId << std::endl;
                 return false;
             }
-            auto depPackage = ralf::Package::openWithoutVerification(std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage);
+            auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
+            auto depPackage = ralf::Package::open(std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage, mVerificationBundle, openFlags);
 
-            if (!depPackage || !lockPackage(depPackage.value(), ralfMountInfo))
+            if (!depPackage || !depPackage->isValid())
+            {
+                std::cerr << "[libPackage] Failed to open dependent package: " << depPackageId << " Error: " << depPackage.error().what() << std::endl;
+                return false;
+            }
+            if (!lockPackage(depPackage.value(), ralfMountInfo))
             {
                 std::cerr << "[libPackage] Failed to lock dependent package: " << depPackageId << std::endl;
                 return false;
@@ -387,8 +437,9 @@ namespace packagemanager
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
         std::cout << "[libPackage] Unlocking dependencies for package: " << packagePath.string() << std::endl;
 
-        auto package = ralf::Package::openWithoutVerification(packagePath);
-        if (!package)
+        auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
+        auto package = ralf::Package::open(packagePath, mVerificationBundle, openFlags);
+        if (!package || !package->isValid())
         {
             std::cerr << "[libPackage] Failed to open" << packagePath.string() << " for unlocking dependencies: " << package.error().what() << std::endl;
             return false;
