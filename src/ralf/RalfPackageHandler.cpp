@@ -452,7 +452,7 @@ namespace packagemanager
 
         return true;
     }
-    const ralf::Result<ralf::Package> RalfPackageImpl::openPackage(const std::string &fileLocator, bool &passedVerification)
+    ralf::Result<ralf::Package> RalfPackageImpl::openPackage(const std::string &fileLocator, bool &passedVerification)
     {
         auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
         auto package = ralf::Package::open(fileLocator, mVerificationBundle, openFlags);

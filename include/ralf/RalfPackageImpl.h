@@ -107,7 +107,7 @@ namespace packagemanager
          * @param passedVerification Output parameter to indicate if the package verification was successful.
          * @return A Result containing the Package object if successful; an error otherwise.
          */
-        const ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool &passedVerification);
+        ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool &passedVerification);
 
         /**
          * Locks the specified package for exclusive access. The package is verified, dependent packages are mounted,
