@@ -130,6 +130,13 @@ namespace packagemanager
     bool RalfPackageImpl::initializeVerificationBundle()
     {
         bool certLoaded = false;
+        std::cout << "[libPackage] Initializing verification bundle from certificates in: " << pkgCertDirPath << std::endl;
+        // Check whether directory exists
+        if (!std::filesystem::exists(pkgCertDirPath))
+        {
+            std::cerr << "[libPackage] Certificate directory does not exist: " << pkgCertDirPath << std::endl;
+            return false;
+        }
         // Load the certificate from pkgCertDirPath
         // Iterate through all the certificates in the directory
         std::filesystem::directory_options options = std::filesystem::directory_options::none;
@@ -143,19 +150,16 @@ namespace packagemanager
                     std::cerr << "[libPackage] Skipping certificate file: " << dirEntry.path() << std::endl;
                     continue;
                 }
-                if (dirEntry.is_regular_file())
+                auto result = ralf::Certificate::loadFromFile(dirEntry.path().string());
+                if (!result)
                 {
-                    auto result = ralf::Certificate::loadFromFile(dirEntry.path().string());
-                    if (!result)
-                    {
-                        std::cerr << "[libPackage] Failed to load certificate from file: " << dirEntry.path() << " Error: " << result.error().what() << std::endl;
-                        continue;
-                    }
-                    mVerificationBundle.addCertificate(result.value());
-                    certLoaded = true;
-
-                    std::cout << "[libPackage] Successfully added certificate from: " << dirEntry.path() << " to verification bundle." << std::endl;
+                    std::cerr << "[libPackage] Failed to load certificate from file: " << dirEntry.path() << " Error: " << result.error().what() << std::endl;
+                    continue;
                 }
+                mVerificationBundle.addCertificate(result.value());
+                certLoaded = true;
+
+                std::cout << "[libPackage] Successfully added certificate from: " << dirEntry.path() << " to verification bundle." << std::endl;
             }
         }
         return certLoaded;
