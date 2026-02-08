@@ -23,13 +23,64 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <sstream>
 
-const std::string VERSION = "2.0.0";
+#include <string>
 
-std::string packageId = "com.rdk.app.cobalt2024";
-std::string version = "1.0.0";
-
-void testUninstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::string &packageId)
+template <typename T>
+inline T retrieveInputFromUser(const std::string &prompt, bool allowEmpty, T defaultValue)
 {
+    T value = defaultValue;
+
+    std::string input;
+
+    std::cout << prompt << "Default (" << defaultValue << "): ";
+    std::getline(std::cin, input);
+
+    if (input.empty() && allowEmpty)
+    {
+        return defaultValue;
+    }
+
+    while (true)
+    {
+        std::istringstream iss(input);
+        if (!(iss >> value))
+        {
+            std::cout << "Invalid input. Please try again: ";
+            std::getline(std::cin, input);
+            iss.clear();
+            iss.str(input);
+            continue;
+        }
+        else
+            break;
+    }
+    return value;
+}
+
+void testPackageInfo(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
+{
+    std::string fileLocator = retrieveInputFromUser<std::string>("Enter the file locator: ", false, "");
+    std::string packageId = retrieveInputFromUser<std::string>("Enter the package ID: ", true, "");
+    std::string version = retrieveInputFromUser<std::string>("Enter the version: ", true, "");
+    packagemanager::ConfigMetaData configMetadata;
+
+    if (packageImpl->GetFileMetadata(fileLocator, packageId, version, configMetadata) == packagemanager::Result::SUCCESS)
+    {
+        std::cout << "Successfully retrieved package metadata." << std::endl;
+        std::cout << "Package ID: " << packageId << std::endl;
+        std::cout << "Version: " << version << std::endl;
+        std::cout << "File Locator: " << fileLocator << std::endl;
+        std::cout << "App installed path: " << configMetadata.appPath << std::endl;
+    }
+    else
+    {
+        std::cout << "Failed to retrieve package metadata." << std::endl;
+    }
+}
+void testUninstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
+{
+    std::string packageId = retrieveInputFromUser<std::string>("Enter the package ID to uninstall: ", false, "");
+
     std::cout << "Testing Uninstall method for package: " << packageId << std::endl;
     if (packageImpl->Uninstall(packageId) == packagemanager::Result::SUCCESS)
     {
@@ -40,9 +91,12 @@ void testUninstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, st
         std::cout << "Failed to uninstall package: " << packageId << std::endl;
     }
 }
-bool testLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::string &packageId)
+bool testLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
+    std::string packageId = retrieveInputFromUser<std::string>("Enter the package ID to lock: ", false, "");
+
     std::cout << "Testing Lock method for package: " << packageId << std::endl;
+
     std::string unpackedPath;
     packagemanager::ConfigMetaData configMetadata;
     if (packageImpl->Lock(packageId, "", unpackedPath, configMetadata) == packagemanager::Result::SUCCESS)
@@ -56,8 +110,11 @@ bool testLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::st
         return false; // Failure
     }
 }
-bool testUnLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::string &packageId, std::string &version)
+bool testUnLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
+    std::string packageId = retrieveInputFromUser<std::string>("Enter the package ID to unlock: ", false, "");
+    std::string version = retrieveInputFromUser<std::string>("Enter the version to unlock: ", false, "");
+
     std::cout << "Testing Unlock method for package: " << packageId << std::endl;
     if (packageImpl->Unlock(packageId, version) == packagemanager::Result::SUCCESS)
     {
@@ -73,21 +130,18 @@ bool testUnLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl, std::
 bool testInstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
     std::cout << "Testing Install method..." << std::endl;
+    std::string packageId = retrieveInputFromUser<std::string>("Enter the package ID to install: ", false, "");
+    std::string version = retrieveInputFromUser<std::string>("Enter the version to install: ", false, "");
     // Install a package. This is downloaded from DAC app store and placed in the specified location.
-    std::string fileUrl = "/opt/downloads/com.rdk.app.cobalt2024-1.0.0-rpi4-1.0.0-b34e9a38a2675d4cd02cf89f7fc72874a4c99eb0-dbg.tar.gz";
-    std::string appName = "YouTube 2024";
-    std::string category = "Media";
-    std::string type = "application/dac.native";
+    std::string fileUrl = retrieveInputFromUser<std::string>("Enter the package location to install: ", false, "");
 
     packagemanager::NameValues additionalMetadata;
-    additionalMetadata.push_back(std::make_pair("type", type));
-    additionalMetadata.push_back(std::make_pair("appName", appName));
-    additionalMetadata.push_back(std::make_pair("category", category));
     packagemanager::ConfigMetaData configMetadata;
 
     if (packageImpl->Install(packageId, version, additionalMetadata, fileUrl, configMetadata) == packagemanager::Result::SUCCESS)
     {
         std::cout << "Successfully installed package: " << packageId << std::endl;
+        std::cout << "App installed path: " << configMetadata.appPath << std::endl;
         return true; // Success
     }
     else
@@ -96,9 +150,67 @@ bool testInstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
         return false; // Failure
     }
 }
+
+void printMainMenu()
+{
+    std::cout << "--------------------------" << std::endl;
+    std::cout << "LibPackage Test Utility" << std::endl;
+    std::cout << "Select an option:" << std::endl;
+
+    std::cout << "1. Install a package" << std::endl;
+    std::cout << "2. Lock a package" << std::endl;
+    std::cout << "3. Get package information" << std::endl;
+    std::cout << "4. UnLock a package" << std::endl;
+    std::cout << "5. Uninstall a package" << std::endl;
+    std::cout << "0 . Exit" << std::endl;
+    std::cout << "--------------------------" << std::endl;
+}
+int processUserCommands(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
+{
+
+    while (true)
+    {
+        printMainMenu();
+
+        int choice = retrieveInputFromUser<int>("Enter your choice: ", false, 0);
+        switch (choice)
+        {
+        case 1:
+            std::cout << "Testing install method..." << std::endl;
+            testInstall(packageImpl);
+            break;
+        case 2:
+            testLock(packageImpl);
+            break;
+        case 3:
+            testPackageInfo(packageImpl);
+            break;
+        case 4:
+            testUnLock(packageImpl);
+            break;
+        case 5:
+            testUninstall(packageImpl);
+            break;
+        case 0:
+            std::cout << "Exiting..." << std::endl;
+            return 0;
+        default:
+            std::cout << "Invalid choice. Please try again." << std::endl;
+        }
+    }
+    return 0;
+}
+void dumpCurrentPackages(packagemanager::ConfigMetadataArray configMetadataArray)
+{
+    std::cout << "Current Packages:" << std::endl;
+    for (const auto &configMetadata : configMetadataArray)
+    {
+        std::cout << "Package ID: " << configMetadata.packageId << ", Version: " << configMetadata.version << std::endl;
+    }
+}
 int main(int argc, char *argv[])
 {
-    std::cout << "PackageImplTestApp version " << VERSION << std::endl;
+    std::cout << "PackageImplTestApp version 1.2.0" << std::endl;
 
     std::shared_ptr<packagemanager::IPackageImpl> packageImpl = packagemanager::IPackageImpl::instance();
     std::string packageList;
@@ -109,19 +221,9 @@ int main(int argc, char *argv[])
         std::cout << "Failed to initialize package manager." << std::endl;
         return 1;
     }
-    std::cout << "Package Manager Initialized." << std::endl;
-
-    if (testInstall(packageImpl))
-    {
-
-        std::cout << " package ID: " << packageId << " Version: " << version << std::endl;
-        if (testLock(packageImpl, packageId))
-        {
-            // Test Unlock method
-            testUnLock(packageImpl, packageId, version);
-        }
-        testUninstall(packageImpl, packageId);
-    }
+    std::cout << "Package Manager Initialized. " << std::endl;
+    dumpCurrentPackages(configMetadataArray);
+    processUserCommands(packageImpl);
 
     std::cout << "Test completed." << std::endl;
     return 0;

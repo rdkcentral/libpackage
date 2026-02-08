@@ -139,8 +139,15 @@ namespace packagemanager
         }
         // Load the certificate from pkgCertDirPath
         // Iterate through all the certificates in the directory
-        std::filesystem::directory_options options = std::filesystem::directory_options::none;
-        for (auto const &dirEntry : std::filesystem::directory_iterator(pkgCertDirPath, options))
+        std::filesystem::directory_options options = std::filesystem::directory_options::skip_permission_denied;
+        std::error_code ec;
+        std::filesystem::directory_iterator dirIter(pkgCertDirPath, options, ec);
+        if (ec)
+        {
+            std::cerr << "[libPackage] Error accessing certificate directory: " << ec.message() << std::endl;
+            return false;
+        }
+        for (auto const &dirEntry : dirIter)
         {
             if (dirEntry.is_regular_file())
             {
@@ -285,7 +292,7 @@ namespace packagemanager
         auto package = openPackage(packagePath, passedVerification);
         if (!passedVerification)
         {
-            std::cerr << "[libPackage] Failed to open package for locking: " << package.error().what() << std::endl;
+            std::cerr << "[libPackage] Failed to open package for locking: " << packagePath.string() << std::endl;
             return Result::FAILED;
         }
 
@@ -318,7 +325,7 @@ namespace packagemanager
         auto package = openPackage(packagePath, passedVerification);
         if (!passedVerification)
         {
-            std::cerr << "[libPackage] Failed to open package for unlocking: " << package.error().what() << std::endl;
+            std::cerr << "[libPackage] Failed to open package for unlocking: " << packagePath.string() << std::endl;
             return Result::FAILED;
         }
         return unmountDependentPackages(package.value()) ? Result::SUCCESS : Result::FAILED;
@@ -335,7 +342,7 @@ namespace packagemanager
         auto package = openPackage(fileLocator, passedVerification);
         if (!passedVerification)
         {
-            std::cerr << "[libPackage] Failed to open package for getting file metadata: " << package.error().what() << std::endl;
+            std::cerr << "[libPackage] Failed to open package for getting file metadata: " << std::endl;
             return Result::FAILED;
         }
 
@@ -348,6 +355,7 @@ namespace packagemanager
 
     bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo)
     {
+        bool status = false;
         if (!mIsInitialized)
         {
             std::cerr << "[libPackage] RalfPackageImpl::lockPackage called before initialization." << std::endl;
@@ -381,7 +389,8 @@ namespace packagemanager
             return false;
         }
 
-        // Step 1. verify and mount depedent pacakges
+        status = true;
+        // Step 1. verify and mount depedent packages
         auto dependencies = pkgMetadata->dependencies();
         for (const auto &dependency : dependencies)
         {
@@ -392,7 +401,8 @@ namespace packagemanager
             if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
             {
                 std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId << std::endl;
-                return false;
+                status = false;
+                break;
             }
 
             bool passedVerification = false;
@@ -401,15 +411,21 @@ namespace packagemanager
             if (!passedVerification)
             {
                 std::cerr << "[libPackage] Failed to open package for locking: " << depPackage.error().what() << std::endl;
-                return Result::FAILED;
+                status = false;
+                break;
             }
 
             if (!lockPackage(depPackage.value(), ralfMountInfo))
             {
                 std::cerr << "[libPackage] Failed to lock dependent package: " << depPackageId << std::endl;
-                unmountDependentPackages(package);
-                return false;
+                status = false;
+                break;
             }
+        }
+        if (!status)
+        {
+            unmountDependentPackages(package);
+            return false;
         }
 
         // Step 2. Verify and mount the package

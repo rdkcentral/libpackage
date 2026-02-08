@@ -41,9 +41,6 @@ namespace ralf = LIBRALF_NS;
 
 namespace packagemanager
 {
-    int setup_loop_device(const char *img_path, char *loop_dev, size_t loop_dev_size);
-    void detach_loop_device(const char *loop_dev);
-
     struct MountedPackageInfo
     {
         // We need this to keep track of how many times a package is mounted. Otherwise we will unmount it too early
