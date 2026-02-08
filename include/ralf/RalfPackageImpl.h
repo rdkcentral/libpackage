@@ -44,17 +44,6 @@ namespace packagemanager
     int setup_loop_device(const char *img_path, char *loop_dev, size_t loop_dev_size);
     void detach_loop_device(const char *loop_dev);
 
-#ifdef ENABLE_LOCAL_MOUNT
-    struct MountedPackageInfo
-    {
-        int mountCount = 1;
-        std::string loopDevice;
-        std::string mountPath;
-        std::string pkgJsonPath;
-        void incMountCount() { mountCount++; }
-        void decMountCount() { mountCount--; }
-    };
-#else
     struct MountedPackageInfo
     {
         // We need this to keep track of how many times a package is mounted. Otherwise we will unmount it too early
@@ -64,7 +53,6 @@ namespace packagemanager
         void incMountCount() { mountCount++; }
         void decMountCount() { mountCount--; }
     };
-#endif
 
     typedef struct _RalfPackageInfo
     {
@@ -98,6 +86,9 @@ namespace packagemanager
         static std::string AppInstallationPath;
         static std::string pkgCertDirPath;
 
+        // Flag to check initialisation status
+        bool mIsInitialized = false;
+
         // For package verification
         ralf::VerificationBundle mVerificationBundle;
 
@@ -107,22 +98,32 @@ namespace packagemanager
          * Initializes the verification bundle by loading certificates from the specified directory.
          * @return true if at least one certificate was successfully loaded; false otherwise.
          */
-        bool initilizeVerificationBundle();
+        bool initializeVerificationBundle();
 
         /**
-         * Verifies the package's signature using the initialized verification bundle.
-         * @param package The package to be verified.
-         * @return Result::SUCCESS if the package is verified successfully; Result::FAILED otherwise.
+         * Opens a package file and returns a Result containing the Package object.
+         * Sets the passedVerification flag to true if the package verification is successful; false otherwise.
+         * @param packageFile The path to the package file.
+         * @param passedVerification Output parameter to indicate if the package verification was successful.
+         * @return A Result containing the Package object if successful; an error otherwise.
+         */
+        const ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool &passedVerification);
+
+        /**
+         * Locks the specified package for exclusive access. The package is verified, dependent packages are mounted,
+         * and necessary resources are allocated.
+         * @param package The package to be locked.
+         * @param ralfMountInfo Output parameter to hold information about the mounted package.
+         * @return true if the package is locked successfully; false otherwise.
          */
         bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo);
 
         /**
          * Mounts the dependent packages required by the specified package.
-         * @param packageId The ID of the package whose dependencies are to be mounted.
-         * @param version The version of the package whose dependencies are to be mounted.
-         * @return true if all dependent packages are mounted successfully; false otherwise.
+         * @param package The package whose dependencies are to be unmounted.
+         * @return true if all dependent packages are unmounted successfully; false otherwise.
          */
-        bool unmountDependentPackages(const std::string &packageId, const std::string &version);
+        bool unmountDependentPackages(const ralf::Package &package);
 
         /**
          * Identifies the installed version of a dependent package that satisfies the given version constraint.
@@ -148,17 +149,6 @@ namespace packagemanager
          * @return true if serialization is successful; false otherwise.
          */
         bool serializeToJson(const std::vector<RalfPackageInfo> &mountPkgList, const std::filesystem::path &outputPath) const;
-#ifdef ENABLE_LOCAL_MOUNT
-        ` /**
-           * Constructs the EROFS blob path for the specified package ID and version.
-           * The path is read from the package.erofs file located in the package directory.
-           *
-           * @param packageId The ID of the package.
-           * @param version The version of the package.
-           * @return The constructed EROFS blob path as a string.
-           */
-            std::string getErofsBlobPath(const std::string &packageId, const std::string &version);
-#endif
     };
 
 }
