@@ -24,9 +24,16 @@ set(PACKAGEAPP_SRCS
 add_executable(PackageApp
     ${PACKAGEAPP_SRCS}
 )
-target_link_libraries(PackageApp
-    PRIVATE Package
-    PRIVATE ${Boost_SYSTEM_LIBRARY}
-)
+
+if( ENABLE_RALF_SUPPORT)
+    target_link_libraries(PackageApp PRIVATE Package)
+else()
+    target_link_libraries(PackageApp
+        PRIVATE Package
+        PRIVATE ${Boost_SYSTEM_LIBRARY}
+    )
+endif(ENABLE_RALF_SUPPORT)
+
+
 include_directories(../include)
 install(TARGETS PackageApp DESTINATION bin)

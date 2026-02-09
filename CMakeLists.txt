@@ -20,6 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 cmake_minimum_required(VERSION 3.22)
 
 option(ENABLE_RALF_SUPPORT "Enable RALF support" OFF)
+option (BUILD_TEST_APP "Build test application" OFF)
 
 set(LIBPACKAGE_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 if(ENABLE_RALF_SUPPORT)
@@ -31,7 +32,10 @@ else()
     add_subdirectory(src/legacy)
 endif()
 
-#add_subdirectory(app)
+if(BUILD_TEST_APP)
+    add_subdirectory(app)
+endif()
+
 if(LIBPACKAGE_L1_TESTS)
     add_subdirectory(tests)
 endif()

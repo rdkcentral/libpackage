@@ -19,16 +19,7 @@
 find_package(libralf REQUIRED)
 set (PACKAGE_SRCS RalfPackageHandler.cpp)
 
-option(ENABLE_LOCAL_MOUNT "Enable local mount support" OFF)
 option(DISABLE_DEPENDENCY_CHECK "Disable dependency check" ON)
-if(ENABLE_LOCAL_MOUNT)
-    #print a message 
-    message(STATUS "Local mount is enabled")    
-    list(APPEND PACKAGE_SRCS LoopMount.cpp)
-    add_definitions("-DENABLE_LOCAL_MOUNT")
-else()
-    message(STATUS "Local mount is disabled")
-endif(ENABLE_LOCAL_MOUNT)
 
 if(DISABLE_DEPENDENCY_CHECK)
     message(STATUS "Dependency check is disabled")
@@ -37,14 +28,20 @@ else()
     message(STATUS "Dependency check is enabled")
 endif()
 
+if(NOT RDK_PACKAGE_CERT_PATH STREQUAL "")
+    message(STATUS "Using custom package certificate path: ${RDK_PACKAGE_CERT_PATH}")
+    add_definitions("-DRDK_PACKAGE_CERT_PATH=\"${RDK_PACKAGE_CERT_PATH}\"")
+else()
+    message(STATUS "Using default package certificate path")
+endif()
+
 add_library(Package SHARED ${PACKAGE_SRCS})
-set_target_properties(Package PROPERTIES VERSION 1.1.0 SOVERSION 1)
+set_target_properties(Package PROPERTIES VERSION 1.2.0 SOVERSION 1)
 
 
 if(DAC_APP_PATH)
     target_compile_definitions(Package PRIVATE DAC_APP_PATH="${DAC_APP_PATH}")
 endif()
-
 
 target_link_libraries(Package PRIVATE ralf jsoncpp)
 target_include_directories(Package PRIVATE  ${LIBPACKAGE_BASE_DIR}/include/ralf)
