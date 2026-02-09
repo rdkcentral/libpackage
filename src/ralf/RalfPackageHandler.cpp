@@ -152,11 +152,6 @@ namespace packagemanager
             if (dirEntry.is_regular_file())
             {
                 std::ifstream certFile(dirEntry.path());
-                if (!certFile.is_open())
-                {
-                    std::cerr << "[libPackage] Skipping certificate file: " << dirEntry.path() << std::endl;
-                    continue;
-                }
                 auto result = ralf::Certificate::loadFromFile(dirEntry.path().string());
                 if (!result)
                 {
@@ -229,6 +224,8 @@ namespace packagemanager
             std::filesystem::copy_file(fileLocator, destRalfPackagePath, std::filesystem::copy_options::overwrite_existing);
             auto appPath = destRalfPackagePath.string();
             configMetadata.appPath = std::move(appPath);
+            configMetadata.userId = 0 ;// Root mode.
+            configMetadata.groupId = 0 ;// Root mode.
             std::cout << "[libPackage] Installed package to: " << configMetadata.appPath << std::endl;
         }
         catch (const std::filesystem::filesystem_error &e)
@@ -342,7 +339,7 @@ namespace packagemanager
         auto package = openPackage(fileLocator, passedVerification);
         if (!passedVerification)
         {
-            std::cerr << "[libPackage] Failed to open package for getting file metadata: " << std::endl;
+            std::cerr << "[libPackage] Failed to open package for getting file metadata: " << fileLocator<< std::endl;
             return Result::FAILED;
         }
 
@@ -350,6 +347,8 @@ namespace packagemanager
         packageId = package->id();
         version = package->version().toString();
         configMetadata.appPath = packagePath.string();
+        configMetadata.userId = 0 ;// Root mode.
+        configMetadata.groupId = 0 ;// Root mode.
         return Result::SUCCESS;
     }
 
@@ -390,7 +389,7 @@ namespace packagemanager
         }
 
         status = true;
-        // Step 1. verify and mount depedent packages
+        // Step 1. verify and mount dependent packages
         auto dependencies = pkgMetadata->dependencies();
         for (const auto &dependency : dependencies)
         {
@@ -410,7 +409,7 @@ namespace packagemanager
             auto depPackage = openPackage(fileLocator, passedVerification);
             if (!passedVerification)
             {
-                std::cerr << "[libPackage] Failed to open package for locking: " << depPackage.error().what() << std::endl;
+                std::cerr << "[libPackage] Failed to open package for locking: " << fileLocator.string() << std::endl;
                 status = false;
                 break;
             }

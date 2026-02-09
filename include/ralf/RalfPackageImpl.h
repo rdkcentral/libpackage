@@ -116,7 +116,7 @@ namespace packagemanager
         bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo);
 
         /**
-         * Mounts the dependent packages required by the specified package.
+         * Unmounts the dependent packages mounted by the specified package.
          * @param package The package whose dependencies are to be unmounted.
          * @return true if all dependent packages are unmounted successfully; false otherwise.
          */

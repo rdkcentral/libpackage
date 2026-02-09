@@ -200,12 +200,15 @@ int processUserCommands(std::shared_ptr<packagemanager::IPackageImpl> packageImp
     }
     return 0;
 }
-void dumpCurrentPackages(packagemanager::ConfigMetadataArray configMetadataArray)
+void dumpCurrentPackages(const packagemanager::ConfigMetadataArray &configMetadataMap)
 {
     std::cout << "Current Packages:" << std::endl;
-    for (const auto &configMetadata : configMetadataArray)
+    for (const auto &configMetadata : configMetadataMap)
     {
-        std::cout << "Package ID: " << configMetadata.packageId << ", Version: " << configMetadata.version << std::endl;
+        const std::pair<std::string, std::string> & appKey = configMetadata.first;
+        std::cout << "Package ID: " << appKey.first << ", Version: " << appKey.second << std::endl;
+        const packagemanager::ConfigMetaData & configData = configMetadata.second;
+        std::cout << "Ralf path: " << configData.ralfPkgPath << ", App path: " << configData.appPath << std::endl;
     }
 }
 int main(int argc, char *argv[])
@@ -214,15 +217,15 @@ int main(int argc, char *argv[])
 
     std::shared_ptr<packagemanager::IPackageImpl> packageImpl = packagemanager::IPackageImpl::instance();
     std::string packageList;
-    packagemanager::ConfigMetadataArray configMetadataArray;
+    packagemanager::ConfigMetadataArray configMetadataMap;
     std::string configString = R"({"appspath":"/opt/dac_apps/apps","dbpath":"/opt/dac_apps","datapath":"/opt/dac_apps/data","annotationsFile":"config.json","annotationsRegex":"public\\.*"})";
-    if (packageImpl->Initialize(configString, configMetadataArray) != packagemanager::SUCCESS)
+    if (packageImpl->Initialize(configString, configMetadataMap) != packagemanager::Result::SUCCESS)
     {
         std::cout << "Failed to initialize package manager." << std::endl;
         return 1;
     }
     std::cout << "Package Manager Initialized. " << std::endl;
-    dumpCurrentPackages(configMetadataArray);
+    dumpCurrentPackages(configMetadataMap);
     processUserCommands(packageImpl);
 
     std::cout << "Test completed." << std::endl;
