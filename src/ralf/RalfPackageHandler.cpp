@@ -26,6 +26,9 @@
 #include <json/json.h>
 #include <fstream>
 
+#define RALF_USER_GROUP 30000
+#define RALF_USER_ID 30000
+
 namespace packagemanager
 {
     std::string RalfPackageImpl::AppInstallationPath = DAC_APP_PATH;
@@ -224,8 +227,8 @@ namespace packagemanager
             std::filesystem::copy_file(fileLocator, destRalfPackagePath, std::filesystem::copy_options::overwrite_existing);
             auto appPath = destRalfPackagePath.string();
             configMetadata.appPath = std::move(appPath);
-            configMetadata.userId = 0 ;// Root mode.
-            configMetadata.groupId = 0 ;// Root mode.
+            configMetadata.userId = RALF_USER_ID ;// Ralf user id.
+            configMetadata.groupId = RALF_USER_GROUP ;// Ralf user group.
             std::cout << "[libPackage] Installed package to: " << configMetadata.appPath << std::endl;
         }
         catch (const std::filesystem::filesystem_error &e)
@@ -347,8 +350,8 @@ namespace packagemanager
         packageId = package->id();
         version = package->version().toString();
         configMetadata.appPath = packagePath.string();
-        configMetadata.userId = 0 ;// Root mode.
-        configMetadata.groupId = 0 ;// Root mode.
+        configMetadata.userId = RALF_USER_ID ;// Ralf user id.
+        configMetadata.groupId = RALF_USER_GROUP ;// Ralf user group.
         return Result::SUCCESS;
     }
 
