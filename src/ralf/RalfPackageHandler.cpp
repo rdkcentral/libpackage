@@ -26,9 +26,15 @@
 #include <json/json.h>
 #include <fstream>
 
-#define RALF_USER_GROUP 30000
-#define RALF_USER_ID 30000
+#include <cstdint>
 
+#include <sys/types.h>
+#include <pwd.h> //For getting user id and group id of ralf user
+
+namespace
+{
+    static constexpr const char *RALF_USER_NAME = "ralf";
+}
 namespace packagemanager
 {
     std::string RalfPackageImpl::AppInstallationPath = DAC_APP_PATH;
@@ -96,6 +102,15 @@ namespace packagemanager
     Result RalfPackageImpl::Initialize(const std::string &configStr, ConfigMetadataArray &aConfigMetadata)
     {
         std::cout << "[libPackage] RalfPackageImpl::Initialize called with config: " << configStr << std::endl;
+        if (getRalfUserInfo(mUserId, mGroupId))
+        {
+            std::cout << "[libPackage] Ralf user id and group id : " << mUserId << ", " << mGroupId << std::endl;
+        }
+        else
+        {
+            std::cerr << "[libPackage] Failed to get Ralf user info. Initialization failed." << std::endl;
+            return Result::FAILED;
+        }
         // Check if AppInstallationPath exists
         if (!initializeVerificationBundle())
         {
@@ -122,6 +137,8 @@ namespace packagemanager
                 std::cout << "[libPackage] Found installed package: " << appId << ", version: " << appVersion << std::endl;
                 ConfigMetaData configMetadata;
                 configMetadata.appPath = std::filesystem::path(packagePath);
+                configMetadata.userId = mUserId;   // Ralf user id.
+                configMetadata.groupId = mGroupId; // Ralf user group.
 
                 ConfigMetadataKey appKey = {appId, appVersion};
                 aConfigMetadata[appKey] = configMetadata;
@@ -227,8 +244,8 @@ namespace packagemanager
             std::filesystem::copy_file(fileLocator, destRalfPackagePath, std::filesystem::copy_options::overwrite_existing);
             auto appPath = destRalfPackagePath.string();
             configMetadata.appPath = std::move(appPath);
-            configMetadata.userId = RALF_USER_ID ;// Ralf user id.
-            configMetadata.groupId = RALF_USER_GROUP ;// Ralf user group.
+            configMetadata.userId = mUserId;   // Ralf user id.
+            configMetadata.groupId = mGroupId; // Ralf user group.
             std::cout << "[libPackage] Installed package to: " << configMetadata.appPath << std::endl;
         }
         catch (const std::filesystem::filesystem_error &e)
@@ -342,7 +359,7 @@ namespace packagemanager
         auto package = openPackage(fileLocator, passedVerification);
         if (!passedVerification)
         {
-            std::cerr << "[libPackage] Failed to open package for getting file metadata: " << fileLocator<< std::endl;
+            std::cerr << "[libPackage] Failed to open package for getting file metadata: " << fileLocator << std::endl;
             return Result::FAILED;
         }
 
@@ -350,8 +367,8 @@ namespace packagemanager
         packageId = package->id();
         version = package->version().toString();
         configMetadata.appPath = packagePath.string();
-        configMetadata.userId = RALF_USER_ID ;// Ralf user id.
-        configMetadata.groupId = RALF_USER_GROUP ;// Ralf user group.
+        configMetadata.userId = mUserId;   // Ralf user id.
+        configMetadata.groupId = mGroupId; // Ralf user group.
         return Result::SUCCESS;
     }
 
@@ -619,6 +636,18 @@ namespace packagemanager
         }
         outputFile << root.toStyledString();
         outputFile.close();
+        return true;
+    }
+    static bool RalfPackageImpl::getRalfUserInfo(uid_t &userId, gid_t &groupId)
+    {
+        struct passwd *pwd = getpwnam(RALF_USER_NAME);
+        if (pwd == nullptr)
+        {
+            std::cerr << "[libPackage] Failed to get user info for user: " << RALF_USER_NAME << std::endl;
+            return false;
+        }
+        userId = pwd->pw_uid;
+        groupId = pwd->pw_gid;
         return true;
     }
 } // namespace packagemanager
