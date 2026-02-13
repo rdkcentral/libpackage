@@ -25,8 +25,15 @@
 #include <IPackageImpl.h>
 #include <ralf/Package.h>
 #include <ralf/VersionConstraint.h>
+
+#include <sys/types.h> // For uid_t and gid_t
+
 #ifndef DAC_APP_PATH
 #define DAC_APP_PATH "/opt/media/apps/"
+#endif
+
+#ifndef RDK_PACKAGE_CERT_PATH
+#define RDK_PACKAGE_CERT_PATH "/etc/rdk/certs"
 #endif
 
 #define RDK_PACKAGE_CONFIG_MIME_TYPE "application/vnd.rdk.package.config.v1+json"
@@ -36,20 +43,6 @@ namespace ralf = LIBRALF_NS;
 
 namespace packagemanager
 {
-    int setup_loop_device(const char *img_path, char *loop_dev, size_t loop_dev_size);
-    void detach_loop_device(const char *loop_dev);
-
-#ifdef ENABLE_LOCAL_MOUNT
-    struct MountedPackageInfo
-    {
-        int mountCount = 1;
-        std::string loopDevice;
-        std::string mountPath;
-        std::string pkgJsonPath;
-        void incMountCount() { mountCount++; }
-        void decMountCount() { mountCount--; }
-    };
-#else
     struct MountedPackageInfo
     {
         // We need this to keep track of how many times a package is mounted. Otherwise we will unmount it too early
@@ -59,7 +52,6 @@ namespace packagemanager
         void incMountCount() { mountCount++; }
         void decMountCount() { mountCount--; }
     };
-#endif
 
     typedef struct _RalfPackageInfo
     {
@@ -89,19 +81,81 @@ namespace packagemanager
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
 
     private:
-        static std::string RalfPackage;
-        static std::string AppInstallationPath;
+        // Flag to check initialisation status
+        bool mIsInitialized = false;
+
+        // RALF user id and group id. We will use these for setting the right permissions for the mounted package
+        uid_t mUserId;
+        gid_t mGroupId;
+
+        // For package verification
+        ralf::VerificationBundle mVerificationBundle;
 
         std::vector<std::unique_ptr<ConfigMetadataKey> > mInstalledPackages;
 
-        bool lockPackage(const ralf::Package &package, std::vector< RalfPackageInfo> &ralfMountInfo);
-        bool unmountDependentPackages(const std::string &packageId, const std::string &version);
+        /**
+         * Initializes the verification bundle by loading certificates from the specified directory.
+         * @return true if at least one certificate was successfully loaded; false otherwise.
+         */
+        bool initializeVerificationBundle();
+
+        /**
+         * Opens a package file and returns a Result containing the Package object.
+         * Sets the passedVerification flag to true if the package verification is successful; false otherwise.
+         * @param packageFile The path to the package file.
+         * @param passedVerification Output parameter to indicate if the package verification was successful.
+         * @return A Result containing the Package object if successful; an error otherwise.
+         */
+        ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool &passedVerification);
+
+        /**
+         * Locks the specified package for exclusive access. The package is verified, dependent packages are mounted,
+         * and necessary resources are allocated.
+         * @param package The package to be locked.
+         * @param ralfMountInfo Output parameter to hold information about the mounted package.
+         * @return true if the package is locked successfully; false otherwise.
+         */
+        bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo);
+
+        /**
+         * Unmounts the dependent packages mounted by the specified package.
+         * @param package The package whose dependencies are to be unmounted.
+         * @return true if all dependent packages are unmounted successfully; false otherwise.
+         */
+        bool unmountDependentPackages(const ralf::Package &package);
+
+        /**
+         * Identifies the installed version of a dependent package that satisfies the given version constraint.
+         * @param depPackageId The ID of the dependent package.
+         * @param depPackageVersion The version constraint for the dependent package.
+         * @param depInstalledVersion Output parameter to hold the identified installed version.
+         * @return true if a suitable installed version is found; false otherwise.
+         */
         bool identifyDependencyVersion(const std::string &depPackageId, const ralf::VersionConstraint &depPackageVersion, std::string &depInstalledVersion);
+
+        /**
+         * Dumps the package information to a specified configuration path.
+         * @param package The package whose information is to be dumped.
+         * @param configPath The path where the package information will be dumped.
+         * @return true if the package information is dumped successfully; false otherwise.
+         */
         bool dumpPackageInfo(const ralf::Package &package, const std::filesystem::path &configPath);
+
+        /**
+         * Serializes the list of mounted packages to a JSON file at the specified output path.
+         * @param mountPkgList The list of mounted packages to be serialized.
+         * @param outputPath The path where the JSON file will be created.
+         * @return true if serialization is successful; false otherwise.
+         */
         bool serializeToJson(const std::vector<RalfPackageInfo> &mountPkgList, const std::filesystem::path &outputPath) const;
-#ifdef ENABLE_LOCAL_MOUNT
-        std::string getErofsBlobPath(const std::string &packageId, const std::string &version);
-#endif
+
+        /**
+         * Returns the group id and user id of the ralf user. This is needed for setting the right permissions for the mounted package
+         * @param userId  Out parameter holding user id
+         * @param groupId Out parameter holding group id
+         * @return true if user id and group id are successfully retrieved; false otherwise.
+         */
+        static bool getRalfUserInfo(uid_t &userId, gid_t &groupId);
     };
 
 }
