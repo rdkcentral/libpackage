@@ -26,6 +26,8 @@
 #include <ralf/Package.h>
 #include <ralf/VersionConstraint.h>
 
+#include <sys/types.h> // For uid_t and gid_t
+
 #ifndef DAC_APP_PATH
 #define DAC_APP_PATH "/opt/media/apps/"
 #endif
@@ -79,12 +81,12 @@ namespace packagemanager
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
 
     private:
-        static std::string RalfPackage;
-        static std::string AppInstallationPath;
-        static std::string pkgCertDirPath;
-
         // Flag to check initialisation status
         bool mIsInitialized = false;
+
+        // RALF user id and group id. We will use these for setting the right permissions for the mounted package
+        uid_t mUserId;
+        gid_t mGroupId;
 
         // For package verification
         ralf::VerificationBundle mVerificationBundle;
@@ -146,6 +148,14 @@ namespace packagemanager
          * @return true if serialization is successful; false otherwise.
          */
         bool serializeToJson(const std::vector<RalfPackageInfo> &mountPkgList, const std::filesystem::path &outputPath) const;
+
+        /**
+         * Returns the group id and user id of the ralf user. This is needed for setting the right permissions for the mounted package
+         * @param userId  Out parameter holding user id
+         * @param groupId Out parameter holding group id
+         * @return true if user id and group id are successfully retrieved; false otherwise.
+         */
+        static bool getRalfUserInfo(uid_t &userId, gid_t &groupId);
     };
 
 }

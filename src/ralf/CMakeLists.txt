@@ -36,7 +36,7 @@ else()
 endif()
 
 add_library(Package SHARED ${PACKAGE_SRCS})
-set_target_properties(Package PROPERTIES VERSION 1.2.0 SOVERSION 1)
+set_target_properties(Package PROPERTIES VERSION 1.2.1 SOVERSION 1)
 
 
 if(DAC_APP_PATH)
