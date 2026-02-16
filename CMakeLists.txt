@@ -19,6 +19,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 cmake_minimum_required(VERSION 3.22)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
+
 option(ENABLE_RALF_SUPPORT "Enable RALF support" OFF)
 option (BUILD_TEST_APP "Build test application" OFF)
 
