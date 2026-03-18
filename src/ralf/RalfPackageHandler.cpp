@@ -42,7 +42,7 @@ namespace packagemanager
 {
     RalfPackageImpl::RalfPackageImpl()
     {
-        std::cout << "[libpackage] Code revision." << COMPONENT_REFERENCE << std::endl;
+        std::cout << "[libPackage] Code revision." << COMPONENT_REFERENCE << std::endl;
     }
     int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &pacakgeList)
     {
@@ -379,7 +379,6 @@ namespace packagemanager
     bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo)
     {
         bool status = false;
-        bool alreadyMounted = false;
         if (!mIsInitialized)
         {
             std::cerr << "[libPackage] RalfPackageImpl::lockPackage called before initialization." << std::endl;
@@ -390,13 +389,6 @@ namespace packagemanager
         std::cout << "[libPackage] Locking packages." << packageId << ", version " << version << std::endl;
 
         std::string pkgVerKey = packageId + "_" + version;
-        // Check if already mounted
-        if (mountedPackages.find(pkgVerKey) != mountedPackages.end())
-        {
-            // Increase mount count
-            mountedPackages[pkgVerKey]->incMountCount();
-            alreadyMounted = true;
-        }
 
         auto pkgMetadata = package.metaData();
         if (!pkgMetadata)
@@ -445,8 +437,11 @@ namespace packagemanager
         }
 
         // At this point all dependencies are already mounted. if the packages are already mounted, we have metadata, so return.
-        if (alreadyMounted)
+        if (mountedPackages.find(pkgVerKey) != mountedPackages.end())
         {
+            // Increase mount count
+            mountedPackages[pkgVerKey]->incMountCount();
+
             RalfPackageInfo ralfPkgInfo;
 
             ralfPkgInfo.pkgMountPath = mountedPackages[pkgVerKey]->packageMount->mountPoint();
