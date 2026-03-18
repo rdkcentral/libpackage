@@ -28,7 +28,6 @@
 
 #include <cstdint>
 
-
 #include <pwd.h> //For getting user id and group id of ralf user
 
 namespace
@@ -37,9 +36,14 @@ namespace
     static constexpr const char *AppInstallationPath = DAC_APP_PATH;
     static constexpr const char *RalfPackage = "package.ralf";
     static constexpr const char *pkgCertDirPath = RDK_PACKAGE_CERT_PATH;
+    static constexpr const char *COMPONENT_REFERENCE = BUILD_REFERENCE;
 }
 namespace packagemanager
 {
+    RalfPackageImpl::RalfPackageImpl()
+    {
+        std::cout << "[libpackage] Code revision." << COMPONENT_REFERENCE << std::endl;
+    }
     int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &pacakgeList)
     {
         std::cout << "[libPackage] Looking for installed packages in  " << AppInstallationPath << std::endl;
@@ -375,6 +379,7 @@ namespace packagemanager
     bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo)
     {
         bool status = false;
+        bool alreadyMounted = false;
         if (!mIsInitialized)
         {
             std::cerr << "[libPackage] RalfPackageImpl::lockPackage called before initialization." << std::endl;
@@ -390,16 +395,8 @@ namespace packagemanager
         {
             // Increase mount count
             mountedPackages[pkgVerKey]->incMountCount();
-
-            RalfPackageInfo ralfPkgInfo;
-
-            ralfPkgInfo.pkgMountPath = mountedPackages[pkgVerKey]->packageMount->mountPoint();
-            ralfPkgInfo.pkgMetaDataPath = mountedPackages[pkgVerKey]->pkgJsonPath;
-            ralfMountInfo.push_back(ralfPkgInfo);
-            return true;
+            alreadyMounted = true;
         }
-
-        // So it is not mounted yet. Let us start with dependencies.
 
         auto pkgMetadata = package.metaData();
         if (!pkgMetadata)
@@ -409,7 +406,7 @@ namespace packagemanager
         }
 
         status = true;
-        // Step 1. verify and mount dependent packages
+        // Let us process dependencies first
         auto dependencies = pkgMetadata->dependencies();
         for (const auto &dependency : dependencies)
         {
@@ -447,7 +444,19 @@ namespace packagemanager
             return false;
         }
 
-        // Step 2. Verify and mount the package
+        // At this point all dependencies are already mounted. if the packages are already mounted, we have metadata, so return.
+        if (alreadyMounted)
+        {
+            RalfPackageInfo ralfPkgInfo;
+
+            ralfPkgInfo.pkgMountPath = mountedPackages[pkgVerKey]->packageMount->mountPoint();
+            ralfPkgInfo.pkgMetaDataPath = mountedPackages[pkgVerKey]->pkgJsonPath;
+            ralfMountInfo.push_back(ralfPkgInfo);
+
+            return true;
+        }
+
+        // Verify and mount the package
         auto verifyResult = package.verify();
         if (!verifyResult)
         {
