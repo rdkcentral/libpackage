@@ -36,13 +36,13 @@ namespace
     static constexpr const char *AppInstallationPath = DAC_APP_PATH;
     static constexpr const char *RalfPackage = "package.ralf";
     static constexpr const char *pkgCertDirPath = RDK_PACKAGE_CERT_PATH;
-    static constexpr const char *COMPONENT_REFERENCE = BUILD_REFERENCE;
+    static constexpr const char *BuildReference = BUILD_REFERENCE;
 }
 namespace packagemanager
 {
     RalfPackageImpl::RalfPackageImpl()
     {
-        std::cout << "[libPackage] Code revision." << COMPONENT_REFERENCE << std::endl;
+        std::cout << "[libPackage] Code revision : " << BuildReference << std::endl;
     }
     int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &pacakgeList)
     {
