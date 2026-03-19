@@ -31,7 +31,7 @@ jobs:
       run: git clone -b develop https://github.com/rdkcentral/eshelpers.git
 
     -name: Clone ralf-utils
-      run: git clone -b v1.2.0 https://github.com/rdkcentral/ralf-utils.git
+     run: git clone -b v1.2.0 https://github.com/rdkcentral/ralf-utils.git
       
     -name: Build ralf-utils
       run: |
