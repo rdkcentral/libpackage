@@ -43,6 +43,10 @@ if(DAC_APP_PATH)
     target_compile_definitions(Package PRIVATE DAC_APP_PATH="${DAC_APP_PATH}")
 endif()
 
+if(BUILD_REFERENCE)
+    target_compile_definitions(Package PRIVATE BUILD_REFERENCE="${BUILD_REFERENCE}")
+endif()
+
 target_link_libraries(Package PRIVATE ralf jsoncpp)
 target_include_directories(Package PRIVATE  ${LIBPACKAGE_BASE_DIR}/include/ralf)
 

@@ -36,6 +36,10 @@
 #define RDK_PACKAGE_CERT_PATH "/etc/rdk/certs"
 #endif
 
+#ifndef BUILD_REFERENCE
+#define BUILD_REFERENCE "undefined"
+#endif
+
 #define RDK_PACKAGE_CONFIG_MIME_TYPE "application/vnd.rdk.package.config.v1+json"
 #define RDK_PACKAGE_MOUNT_PATH "/tmp/mounts/"
 #define RDK_PACKAGE_CONFIG "config.json"
@@ -69,7 +73,7 @@ namespace packagemanager
 
     public:
         ~RalfPackageImpl() override = default;
-        RalfPackageImpl() {}
+        RalfPackageImpl();
 
         Result Initialize(const std::string &configStr, ConfigMetadataArray &aConfigMetadata) override;
 
