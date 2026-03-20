@@ -330,6 +330,10 @@ namespace packagemanager
                 unpackedPath = packagePath.parent_path().string();
                 return Result::SUCCESS;
             }
+
+            // Rollback already-mounted packages when metadata serialization fails.
+            std::cerr << "[libPackage] Failed to serialize mount package list to: " << tempFilePath << std::endl;
+            unmountDependentPackages(package.value());
         }
         return Result::FAILED;
     }
@@ -439,13 +443,25 @@ namespace packagemanager
         // At this point all dependencies are already mounted. if the packages are already mounted, we have metadata, so return.
         if (mountedPackages.find(pkgVerKey) != mountedPackages.end())
         {
+            auto &mountInfo = mountedPackages[pkgVerKey];
+            if (mountInfo->pkgJsonPath.empty())
+            {
+                auto configPath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / pkgVerKey / RDK_PACKAGE_CONFIG;
+                if (!dumpPackageInfo(package, configPath))
+                {
+                    std::cerr << "[libPackage] Failed to generate package config for mounted package: " << pkgVerKey << std::endl;
+                    return false;
+                }
+                mountInfo->pkgJsonPath = configPath.string();
+            }
+
             // Increase mount count
-            mountedPackages[pkgVerKey]->incMountCount();
+            mountInfo->incMountCount();
 
             RalfPackageInfo ralfPkgInfo;
 
-            ralfPkgInfo.pkgMountPath = mountedPackages[pkgVerKey]->packageMount->mountPoint();
-            ralfPkgInfo.pkgMetaDataPath = mountedPackages[pkgVerKey]->pkgJsonPath;
+            ralfPkgInfo.pkgMountPath = mountInfo->packageMount->mountPoint();
+            ralfPkgInfo.pkgMetaDataPath = mountInfo->pkgJsonPath;
             ralfMountInfo.push_back(ralfPkgInfo);
 
             return true;
@@ -478,6 +494,12 @@ namespace packagemanager
         if (dumpPackageInfo(package, configPath))
         {
             mountInfo->pkgJsonPath = configPath.string();
+        }
+        else
+        {
+            std::cerr << "[libPackage] Failed to dump package metadata for: " << pkgVerKey << std::endl;
+            unmountDependentPackages(package);
+            return false;
         }
 
         mountInfo->packageMount = std::make_unique<ralf::PackageMount>(std::move(mountResult.value()));
