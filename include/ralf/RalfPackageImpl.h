@@ -86,6 +86,7 @@ namespace packagemanager
         // Flag to check initialisation status
         bool mIsInitialized = false;
 
+	// Map to hold mountedPackages information.
         std::map<std::string, std::unique_ptr<MountedPackageInfo> > mountedPackages;
 
         // RALF user id and group id. We will use these for setting the right permissions for the mounted package
