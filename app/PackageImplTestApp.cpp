@@ -19,8 +19,6 @@
 
 #include "IPackageImpl.h"
 #include <iostream>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <sstream>
 
 #include <string>
@@ -94,21 +92,23 @@ void testUninstall(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 bool testLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
     std::string packageId = retrieveInputFromUser<std::string>("Enter the package ID to lock: ", false, "");
+    std::string version = retrieveInputFromUser<std::string>("Enter the version to lock: ", true, "0.2.0");
 
     std::cout << "Testing Lock method for package: " << packageId << std::endl;
 
     std::string unpackedPath;
     packagemanager::ConfigMetaData configMetadata;
-    if (packageImpl->Lock(packageId, "", unpackedPath, configMetadata) == packagemanager::Result::SUCCESS)
+    packagemanager::NameValues additionalLocks;
+    if (packageImpl->Lock(packageId, version, unpackedPath, configMetadata, additionalLocks) == packagemanager::Result::SUCCESS)
     {
         std::cout << "Successfully locked package: " << packageId << ", Unpacked Path: " << unpackedPath << std::endl;
-        return true; // Success
     }
     else
     {
         std::cout << "Failed to lock package: " << packageId << std::endl;
         return false; // Failure
     }
+    return true;
 }
 bool testUnLock(std::shared_ptr<packagemanager::IPackageImpl> packageImpl)
 {
@@ -205,15 +205,15 @@ void dumpCurrentPackages(const packagemanager::ConfigMetadataArray &configMetada
     std::cout << "Current Packages:" << std::endl;
     for (const auto &configMetadata : configMetadataMap)
     {
-        const std::pair<std::string, std::string> & appKey = configMetadata.first;
+        const std::pair<std::string, std::string> &appKey = configMetadata.first;
         std::cout << "Package ID: " << appKey.first << ", Version: " << appKey.second << std::endl;
-        const packagemanager::ConfigMetaData & configData = configMetadata.second;
+        const packagemanager::ConfigMetaData &configData = configMetadata.second;
         std::cout << "Ralf path: " << configData.ralfPkgPath << ", App path: " << configData.appPath << std::endl;
     }
 }
 int main(int argc, char *argv[])
 {
-    std::cout << "PackageImplTestApp version 1.2.0" << std::endl;
+    std::cout << "PackageImplTestApp version 2.0.0" << std::endl;
 
     std::shared_ptr<packagemanager::IPackageImpl> packageImpl = packagemanager::IPackageImpl::instance();
     std::string packageList;

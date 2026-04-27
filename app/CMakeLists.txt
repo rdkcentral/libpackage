@@ -30,7 +30,6 @@ if( ENABLE_RALF_SUPPORT)
 else()
     target_link_libraries(PackageApp
         PRIVATE Package
-        PRIVATE ${Boost_SYSTEM_LIBRARY}
     )
 endif(ENABLE_RALF_SUPPORT)
 
