@@ -437,15 +437,15 @@ namespace packagemanager
         }
 
         // At this point all dependencies are already mounted. if the packages are already mounted, we have metadata, so return.
-        if (mountedPackages.find(pkgVerKey) != mountedPackages.end())
+        if (mMountedPackages.find(pkgVerKey) != mMountedPackages.end())
         {
             // Increase mount count
-            mountedPackages[pkgVerKey]->incMountCount();
+            mMountedPackages[pkgVerKey]->incMountCount();
 
             RalfPackageInfo ralfPkgInfo;
 
-            ralfPkgInfo.pkgMountPath = mountedPackages[pkgVerKey]->packageMount->mountPoint();
-            ralfPkgInfo.pkgMetaDataPath = mountedPackages[pkgVerKey]->pkgJsonPath;
+            ralfPkgInfo.pkgMountPath = mMountedPackages[pkgVerKey]->packageMount->mountPoint();
+            ralfPkgInfo.pkgMetaDataPath = mMountedPackages[pkgVerKey]->pkgJsonPath;
             ralfMountInfo.push_back(ralfPkgInfo);
 
             return true;
@@ -482,7 +482,7 @@ namespace packagemanager
 
         mountInfo->packageMount = std::make_unique<ralf::PackageMount>(std::move(mountResult.value()));
 
-        mountedPackages[pkgVerKey] = std::move(mountInfo);
+        mMountedPackages[pkgVerKey] = std::move(mountInfo);
 
         RalfPackageInfo ralfPkgInfo;
         ralfPkgInfo.pkgMountPath = mountPath.string();
@@ -550,8 +550,8 @@ namespace packagemanager
         }
         std::string depPackageKey = package.id() + "_" + package.version().toString();
 
-        auto it = mountedPackages.find(depPackageKey);
-        if (it == mountedPackages.end())
+        auto it = mMountedPackages.find(depPackageKey);
+        if (it == mMountedPackages.end())
         {
             std::cerr << "[libPackage] Package not found in mounted packages: " << depPackageKey << std::endl;
             return false;
@@ -567,7 +567,7 @@ namespace packagemanager
         {
             // Need to unmount the package
             it->second->packageMount->unmount();
-            mountedPackages.erase(it);
+            mMountedPackages.erase(it);
         }
 
         return true;
