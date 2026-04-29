@@ -63,8 +63,6 @@ namespace packagemanager
         std::string pkgMetaDataPath;
     } RalfPackageInfo;
 
-    std::map<std::string, std::unique_ptr<MountedPackageInfo> > mountedPackages;
-
     class RalfPackageImpl : public IPackageImpl
     {
     private:
@@ -87,6 +85,11 @@ namespace packagemanager
     private:
         // Flag to check initialisation status
         bool mIsInitialized = false;
+
+        // Map to hold mountedPackages information.
+        // Key is combination of package id and version.
+        // Value is the MountedPackageInfo which has the mount point and other info.
+        std::map<std::string, std::unique_ptr<MountedPackageInfo> > mMountedPackages;
 
         // RALF user id and group id. We will use these for setting the right permissions for the mounted package
         uid_t mUserId;
