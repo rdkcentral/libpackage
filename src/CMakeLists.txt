@@ -36,7 +36,7 @@ else()
 endif()
 
 add_library(Package SHARED ${PACKAGE_SRCS})
-set_target_properties(Package PROPERTIES VERSION 1.2.2 SOVERSION 1)
+set_target_properties(Package PROPERTIES VERSION 2.0.0 SOVERSION 1)
 
 
 if(DAC_APP_PATH)
@@ -48,12 +48,12 @@ if(BUILD_REFERENCE)
 endif()
 
 target_link_libraries(Package PRIVATE ralf jsoncpp)
-target_include_directories(Package PRIVATE  ${LIBPACKAGE_BASE_DIR}/include/ralf)
+target_include_directories(Package PRIVATE  ${LIBPACKAGE_BASE_DIR}/include)
 
 install(TARGETS Package DESTINATION lib)
 
 install(FILES
-        ${LIBPACKAGE_BASE_DIR}/include/ralf/RalfPackageImpl.h
+        ${LIBPACKAGE_BASE_DIR}/include/RalfPackageImpl.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 

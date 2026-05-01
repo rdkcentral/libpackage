@@ -40,6 +40,12 @@ namespace
 }
 namespace packagemanager
 {
+#ifdef DISABLE_DEPENDENCY_CHECK
+    bool RalfPackageImpl::enableDependencyCheck = false;
+#else
+    bool RalfPackageImpl::enableDependencyCheck = true;
+#endif
+
     RalfPackageImpl::RalfPackageImpl()
     {
         std::cout << "[libPackage] Code revision : " << BuildReference << std::endl;
@@ -205,36 +211,13 @@ namespace packagemanager
             std::cerr << "[libPackage] Package verification failed for: " << fileLocator << std::endl;
             return Result::FAILED;
         }
-#ifndef DISABLE_DEPENDENCY_CHECK
-        std::cout << "[libPackage][DEPENDENCY_CHECK] Successfully opened package: " << fileLocator << std::endl;
-        auto pkgMetadata = package->metaData();
-        if (pkgMetadata)
-        {
-            auto dependencies = pkgMetadata->dependencies();
-            for (const auto &dependency : dependencies)
-            {
-                // Identify the dependency
-                auto depPackageId = dependency.first;
-                auto depPkgVersion = dependency.second;
-                std::string depInstalledVersion;
+        std::cout << "[libPackage] Successfully opened package: " << fileLocator << std::endl;
 
-                if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
-                {
-                    std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: " << depPackageId << std::endl;
-                    return Result::FAILED;
-                }
-            }
-        }
-        else
+        if (enableDependencyCheck)
         {
-            // Log error
-            std::cerr
-                << "[libPackage] [DEPENDENCY_CHECK] Failed to read package metadata: " << pkgMetadata.error().what() << std::endl;
-            return Result::FAILED;
+            if (!checkPackageDependencies(package.value()))
+                return Result::FAILED;
         }
-        std::cout << "[libPackage] Successfully identified dependencies for package: " << fileLocator << std::endl;
-
-#endif // DISABLE_DEPENDENCY_CHECK
 
         // Create the directory structure
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version;
@@ -262,6 +245,41 @@ namespace packagemanager
         mInstalledPackages.push_back(std::move(appIdVer));
         return Result::SUCCESS;
     }
+    bool RalfPackageImpl::checkPackageDependencies(const ralf::Package &package)
+    {
+        bool status = true;
+
+        std::cout << "[libPackage] [DEPENDENCY_CHECK] Dependency check is enabled." << std::endl;
+        auto pkgMetadata = package.metaData();
+        if (pkgMetadata)
+        {
+            auto dependencies = pkgMetadata->dependencies();
+            for (const auto &dependency : dependencies)
+            {
+                // Identify the dependency
+                auto depPackageId = dependency.first;
+                auto depPkgVersion = dependency.second;
+                std::string depInstalledVersion;
+
+                if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
+                {
+                    std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: " << depPackageId << std::endl;
+                    status = false;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            // Log error
+            std::cerr
+                << "[libPackage] [DEPENDENCY_CHECK] Failed to read package metadata: " << pkgMetadata.error().what() << std::endl;
+            status = false;
+        }
+        std::cout << "[libPackage] Successfully identified dependencies for package: " << package.id() << std::endl;
+        return status;
+    }
+
     Result RalfPackageImpl::Uninstall(const std::string &packageId)
     {
         if (!mIsInitialized)
