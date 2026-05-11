@@ -48,8 +48,9 @@ jobs:
         run: |
           mkdir -p ralf-utils/build
           cd ralf-utils/build
-          cmake ..
+          cmake ../ --install-prefix ${GITHUB_WORKSPACE}/install
           make
+          make install
 
       - name: Cache main build directory
         uses: actions/cache@v4
@@ -63,6 +64,6 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/ralf-utils/build -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/ralf-utils/include" ..
+          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" ..
           make
 
