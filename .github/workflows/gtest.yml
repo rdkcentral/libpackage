@@ -17,8 +17,8 @@ jobs:
       - name: Install Dependencies
         run: |
           set -x
-          sudo apt-get update -y
-          sudo apt install -y  libarchive-dev libxml2-dev libssl-dev liblz4-dev cmake g++ build-essential
+          sudo apt-get update 
+          sudo apt-get install cmake openssl libssl-dev libxml2-dev libarchive-dev liblz4-dev -y
 
       - name: Checkout eshelpers
         uses: actions/checkout@v4
@@ -36,16 +36,32 @@ jobs:
           lfs: 'false'
           fetch-depth: 2          
 
+      - name: Cache ralf-utils build directory
+        uses: actions/cache@v4
+        with:
+          path: ralf-utils/build
+          key: ${{ runner.os }}-ralf-utils-build-${{ hashFiles('ralf-utils/CMakeLists.txt', 'ralf-utils/src/**', 'ralf-utils/include/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ralf-utils-build-
+
       - name: Build ralf-utils
         run: |
-          mkdir ralf-utils/build
+          mkdir -p ralf-utils/build
           cd ralf-utils/build
           cmake ..
           make
 
+      - name: Cache main build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: ${{ runner.os }}-main-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'app/**') }}
+          restore-keys: |
+            ${{ runner.os }}-main-build-
+
       - name: Build
         run: |
-          mkdir build
+          mkdir -p build
           cd build
           cmake -DCMAKE_INSTALL_INCLUDEDIR=.  -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/ralf-utils/include" ..
           make
