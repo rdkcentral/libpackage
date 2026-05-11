@@ -27,6 +27,20 @@ jobs:
           path: eshelpers
           ref: develop
 
+      - name: Checkout jsoncpp version 1.9.5
+        uses: actions/checkout@v4
+        with:
+          repository: open-source-parsers/jsoncpp
+          ref: 1.9.5
+          path: jsoncpp
+      - name: Build and install jsoncpp
+        run: |
+          mkdir -p jsoncpp/build
+          cd jsoncpp/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+          make
+          make install
+
       - name: Checkout ralf-utils
         uses: actions/checkout@v4
         with:
@@ -64,6 +78,6 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake -DCMAKE_INCLUDE_PATH=/usr/include/jsoncpp/ -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" ..
+          cmake  -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" ..
           make
 
