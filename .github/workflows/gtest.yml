@@ -11,27 +11,25 @@ jobs:
     runs-on: ubuntu-latest 
 
     steps:
+      - name: Install Dependencies
+        run: |
+          set -x
+          sudo apt-get update -y
+          sudo apt install -y  libarchive-dev libxml2-dev openssl-dev lz4-dev cmake g++ build-essential
+
       - uses: actions/checkout@v4
       - name: Checkout eshelpers
-        uses: actions/checkout@v3
         with:
           repository: rdkcentral/eshelpers
           path: eshelpers
           ref: develop
 
       - name: Checkout ralf-utils
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: rdkcentral/ralf-utils
           path: ralf-utils
           ref: develop
-
-
-      - name: Install Dependencies
-        run: |
-          set -x
-          sudo apt-get update -y
-          sudo apt install -y  libarchive-dev libxml2-dev openssl-dev lz4-dev cmake g++ build-essential
 
       - name: Build ralf-utils
         run: |
