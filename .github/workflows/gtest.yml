@@ -18,7 +18,7 @@ jobs:
         run: |
           set -x
           sudo apt-get update -y
-          sudo apt install -y  libarchive-dev libxml2-dev libssl-dev lz4-dev cmake g++ build-essential
+          sudo apt install -y  libarchive-dev libxml2-dev libssl-dev liblz4-dev cmake g++ build-essential
 
       - name: Checkout eshelpers
         uses: actions/checkout@v4
