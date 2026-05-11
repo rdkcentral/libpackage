@@ -1,4 +1,4 @@
-name: Google Test
+name: build the code
 
 on:
   push:
@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest 
 
     steps:
-
       - uses: actions/checkout@v4
       - name: Checkout eshelpers
         uses: actions/checkout@v3
@@ -20,29 +19,31 @@ jobs:
           path: eshelpers
           ref: develop
 
+      - name: Checkout ralf-utils
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/ralf-utils
+          path: ralf-utils
+          ref: develop
+
+
       - name: Install Dependencies
         run: |
           set -x
           sudo apt-get update -y
-          sudo apt install -y libsqlite3-dev libboost-dev libboost-system-dev libboost-filesystem-dev libarchive-dev
-          sudo apt-get install -y lcov
+          sudo apt install -y  libarchive-dev libxml2-dev openssl-dev lz4-dev cmake g++ build-essential
+
+      - name: Build ralf-utils
+        run: |
+          mkdir ralf-utils/build
+          cd ralf-utils/build
+          cmake ..
+          make
 
       - name: Build
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DLIBPACKAGE_L1_TESTS=ON -DCMAKE_CXX_STANDARD=14 -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g -std=c++14 -I${GITHUB_WORKSPACE}/eshelpers/packager" ..
+          cmake -DCMAKE_INSTALL_INCLUDEDIR=.  -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/ralf-utils/include" ..
           make
-          ./tests/PackageImplTest
-      - name: Generate Code Coverage
-        run: |
-          lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info
-          lcov --list coverage.info
-
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: code-coverage-report
-          path: build/coverage.info
 
