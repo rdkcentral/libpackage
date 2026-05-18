@@ -25,14 +25,7 @@ add_executable(PackageApp
     ${PACKAGEAPP_SRCS}
 )
 
-if( ENABLE_RALF_SUPPORT)
-    target_link_libraries(PackageApp PRIVATE Package)
-else()
-    target_link_libraries(PackageApp
-        PRIVATE Package
-    )
-endif(ENABLE_RALF_SUPPORT)
-
+target_link_libraries(PackageApp PRIVATE Package)
 
 include_directories(../include)
 install(TARGETS PackageApp DESTINATION bin)

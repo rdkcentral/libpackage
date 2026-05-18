@@ -68,6 +68,7 @@ namespace packagemanager
     private:
         static int getInstalledPackages(std::vector<std::string> &pacakgeList);
         static void getPackageIdAndVersionFromRalfPackage(const std::string &packagePath, std::string &appId, std::string &appVersion);
+        static bool enableDependencyCheck;
 
     public:
         ~RalfPackageImpl() override = default;
@@ -99,6 +100,18 @@ namespace packagemanager
         ralf::VerificationBundle mVerificationBundle;
 
         std::vector<std::unique_ptr<ConfigMetadataKey> > mInstalledPackages;
+
+        /**
+         * This function checks the dependencies of the given package and returns true if all dependencies are
+         * satisfied; false otherwise. The dependency check is performed by reading the package metadata and
+         * verifying that all required dependencies are installed and meet the version constraints specified
+         * by the package. If any dependency is missing or does not satisfy the version constraint, the function
+         * returns false.
+         *
+         * @param package The package whose dependencies are to be checked.
+         * @return true if all dependencies are satisfied; false otherwise.
+         */
+        bool checkPackageDependencies(const ralf::Package &package);
 
         /**
          * Initializes the verification bundle by loading certificates from the specified directory.
