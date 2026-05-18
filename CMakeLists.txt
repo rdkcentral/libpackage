@@ -17,10 +17,9 @@
 project(package)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE OFF CACHE BOOL "Enable verbose build output")
 cmake_minimum_required(VERSION 3.22)
 
-option(ENABLE_RALF_SUPPORT "Enable RALF support" ON)
 option(DISABLE_DEPENDENCY_CHECK "Disable dependency check" ON)
 option(BUILD_TEST_APP "Build test application" OFF)
 
@@ -30,6 +29,5 @@ add_subdirectory(src)
 if(BUILD_TEST_APP)
     add_subdirectory(app)
 endif()
-
 
 

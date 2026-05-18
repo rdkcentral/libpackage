@@ -18,7 +18,7 @@ jobs:
         run: |
           set -x
           sudo apt-get update 
-          sudo apt-get install cmake openssl libssl-dev libxml2-dev libarchive-dev liblz4-dev  libjsoncpp-dev -y
+          sudo apt-get install cmake openssl libssl-dev libxml2-dev libarchive-dev liblz4-dev -y
 
       - name: Checkout eshelpers
         uses: actions/checkout@v4
@@ -80,4 +80,3 @@ jobs:
           cd build
           cmake  -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" ..
           make
-
