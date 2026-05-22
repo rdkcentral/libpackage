@@ -204,9 +204,8 @@ namespace packagemanager
             return Result::FAILED;
         }
         std::cout << "[libPackage] RalfPackageImpl::Install called with packageId: " << packageId << ", version: " << version << ", fileLocator: " << fileLocator << std::endl;
-        bool passedVerification = false;
-        auto package = openPackage(fileLocator, passedVerification);
-        if (!passedVerification)
+        auto package = openPackage(fileLocator, true);
+        if (!package)
         {
             std::cerr << "[libPackage] Package verification failed for: " << fileLocator << std::endl;
             return Result::FAILED;
@@ -326,9 +325,8 @@ namespace packagemanager
         }
         // Step 1: Determine the package path
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
-        bool passedVerification = false;
-        auto package = openPackage(packagePath, passedVerification);
-        if (!passedVerification)
+        auto package = openPackage(packagePath);
+        if (!package)
         {
             std::cerr << "[libPackage] Failed to open package for locking: " << packagePath.string() << std::endl;
             return Result::FAILED;
@@ -343,7 +341,6 @@ namespace packagemanager
             if (serializeToJson(mountPkgList, tempFilePath))
             {
                 std::cout << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
-                std::cout << "[libPackage] user id and gid from config : " << configMetadata.userId << ", " << configMetadata.groupId << std::endl;
                 configMetadata.ralfPkgPath = tempFilePath.string();
                 unpackedPath = packagePath.parent_path().string();
                 return Result::SUCCESS;
@@ -360,9 +357,8 @@ namespace packagemanager
             return Result::FAILED;
         }
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
-        bool passedVerification = false;
-        auto package = openPackage(packagePath, passedVerification);
-        if (!passedVerification)
+        auto package = openPackage(packagePath);
+        if (!package)
         {
             std::cerr << "[libPackage] Failed to open package for unlocking: " << packagePath.string() << std::endl;
             return Result::FAILED;
@@ -377,9 +373,8 @@ namespace packagemanager
             std::cerr << "[libPackage] RalfPackageImpl::GetFileMetadata called before initialization." << std::endl;
             return Result::FAILED;
         }
-        bool passedVerification = false;
-        auto package = openPackage(fileLocator, passedVerification);
-        if (!passedVerification)
+        auto package = openPackage(fileLocator);
+        if (!package)
         {
             std::cerr << "[libPackage] Failed to open package for getting file metadata: " << fileLocator << std::endl;
             return Result::FAILED;
@@ -431,10 +426,9 @@ namespace packagemanager
                 break;
             }
 
-            bool passedVerification = false;
             auto fileLocator = std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage;
-            auto depPackage = openPackage(fileLocator, passedVerification);
-            if (!passedVerification)
+            auto depPackage = openPackage(fileLocator);
+            if (!depPackage)
             {
                 std::cerr << "[libPackage] Failed to open package for locking: " << fileLocator.string() << std::endl;
                 status = false;
@@ -509,24 +503,49 @@ namespace packagemanager
 
         return true;
     }
-    ralf::Result<ralf::Package> RalfPackageImpl::openPackage(const std::string &fileLocator, bool &passedVerification)
+    ralf::Result<ralf::Package> RalfPackageImpl::openPackage(const std::string &fileLocator, bool performFullVerification)
     {
+        const std::filesystem::path packagePath(fileLocator);
+        if (!std::filesystem::exists(packagePath))
+        {
+            std::cerr << "[libPackage] Error: Package file does not exist: " << fileLocator << std::endl;
+            return ralf::Error::format(ralf::make_error_code(ralf::ErrorCode::FileNotFound),
+                                       "Package file does not exist: %s", fileLocator.c_str());
+        }
+
+        if (!std::filesystem::is_regular_file(packagePath))
+        {
+            std::cerr << "[libPackage] Error: Package path is not a regular file: " << fileLocator << std::endl;
+            return ralf::Error::format(ralf::make_error_code(ralf::ErrorCode::InvalidArgument),
+                                       "Package path is not a regular file: %s", fileLocator.c_str());
+        }
+
         auto openFlags = ralf::Package::OpenFlags::CheckCertificateExpiry;
         auto package = ralf::Package::open(fileLocator, mVerificationBundle, openFlags);
         if (!package)
         {
             std::cerr << "[libPackage] Error: Failed to open package: " << fileLocator << " - " << package.error().what() << std::endl;
-            passedVerification = false;
+            return package;
         }
-        else if (!package->isValid())
+
+        if (!package->isValid())
         {
             std::cerr << "[libPackage] Error: Package is not valid: " << fileLocator << std::endl;
-            passedVerification = false;
+            return ralf::Error::format(ralf::make_error_code(ralf::ErrorCode::InvalidPackage),
+                                       "Package is not valid: %s", fileLocator.c_str());
         }
-        else
+
+        if (performFullVerification)
         {
-            passedVerification = true;
+            auto verifyResult = package->verify();
+            if (!verifyResult)
+            {
+                std::cerr << "[libPackage] Error: Failed to fully verify package: " << fileLocator
+                          << " - " << verifyResult.error().what() << std::endl;
+                return verifyResult.error();
+            }
         }
+
         return package;
     }
 
@@ -549,9 +568,8 @@ namespace packagemanager
             if (identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
             {
                 auto fileLocator = std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage;
-                bool passedVerification = false;
-                auto depPackage = openPackage(fileLocator, passedVerification);
-                if (passedVerification)
+                auto depPackage = openPackage(fileLocator);
+                if (depPackage)
                 {
                     if (!unmountDependentPackages(depPackage.value()))
                     {
@@ -672,4 +690,5 @@ namespace packagemanager
         groupId = pwd->pw_gid;
         return true;
     }
+
 } // namespace packagemanager

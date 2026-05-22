@@ -121,12 +121,12 @@ namespace packagemanager
 
         /**
          * Opens a package file and returns a Result containing the Package object.
-         * Sets the passedVerification flag to true if the package verification is successful; false otherwise.
+         * Optionally performs full package verification.
          * @param packageFile The path to the package file.
-         * @param passedVerification Output parameter to indicate if the package verification was successful.
+         * @param performFullVerification If true, calls Package::verify() before returning success.
          * @return A Result containing the Package object if successful; an error otherwise.
          */
-        ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool &passedVerification);
+        ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool performFullVerification = false);
 
         /**
          * Locks the specified package for exclusive access. The package is verified, dependent packages are mounted,
