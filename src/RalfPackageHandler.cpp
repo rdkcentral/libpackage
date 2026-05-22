@@ -344,7 +344,7 @@ namespace packagemanager
                 configMetadata.ralfPkgPath = tempFilePath.string();
                 if (!addPackagePermissionsToConfigMetadata(package.value(), configMetadata))
                 {
-                    std::cerr << "[libPackage] Warning : Failed to add package permissions to config metadata." << std::endl;
+                    std::cerr << "[libPackage] Warning: Failed to add package permissions to config metadata." << std::endl;
                 }
                 unpackedPath = packagePath.parent_path().string();
                 return Result::SUCCESS;
