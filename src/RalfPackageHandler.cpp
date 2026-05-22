@@ -342,6 +342,10 @@ namespace packagemanager
             {
                 std::cout << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
                 configMetadata.ralfPkgPath = tempFilePath.string();
+                if (!addPackagePermissionsToConfigMetadata(package.value(), configMetadata))
+                {
+                    std::cerr << "[libPackage] Warning : Failed to add package permissions to config metadata." << std::endl;
+                }
                 unpackedPath = packagePath.parent_path().string();
                 return Result::SUCCESS;
             }
@@ -690,5 +694,42 @@ namespace packagemanager
         groupId = pwd->pw_gid;
         return true;
     }
+    bool RalfPackageImpl::addPackagePermissionsToConfigMetadata(const ralf::Package &package, ConfigMetaData &configMetadata)
+    {
+        bool status = false;
+        auto pkgMetadata = package.metaData();
+        if (pkgMetadata)
+        {
+            // Permissions are present in applicationInfo section of metadata.
+            auto appInfo = pkgMetadata->applicationInfo();
+            if (appInfo)
+            {
+                auto permissions = appInfo->permissions();
 
+                auto perms = permissions.all();
+                std::string permissionsStr;
+                for (const auto &perm : perms)
+                {
+                    permissionsStr += perm + ",";
+                }
+                status = true;
+                if (!permissionsStr.empty())
+                {
+                    // Remove the trailing comma
+                    permissionsStr.pop_back();
+                    configMetadata.capabilities = permissionsStr;
+                    std::cout << "[libPackage] Added package permissions to config metadata: " << permissionsStr << std::endl;
+                }
+            }
+            else
+            {
+                std::cerr << "[libPackage] No application info found in package metadata." << std::endl;
+            }
+        }
+        else
+        {
+            std::cerr << "[libPackage] Failed to read package metadata for adding permissions to config metadata: " << pkgMetadata.error().what() << std::endl;
+        }
+        return status;
+    }
 } // namespace packagemanager

@@ -176,6 +176,13 @@ namespace packagemanager
          * @return true if user id and group id are successfully retrieved; false otherwise.
          */
         static bool getRalfUserInfo(uid_t &userId, gid_t &groupId);
-    };
 
+        /**
+         * Adds the permissions from the package metadata to the configuration metadata.
+         * @param package The package whose permissions are to be added.
+         * @param configMetadata The configuration metadata to which the permissions will be added.
+         * @return true if permissions are successfully added; false otherwise.
+         */
+        bool addPackagePermissionsToConfigMetadata(const ralf::Package &package, ConfigMetaData &configMetadata);
+    };
 }
