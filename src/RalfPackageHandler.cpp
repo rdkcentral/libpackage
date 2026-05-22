@@ -712,12 +712,12 @@ namespace packagemanager
                 {
                     permissionsStr += perm + ",";
                 }
-                status = true;
                 if (!permissionsStr.empty())
                 {
                     // Remove the trailing comma
                     permissionsStr.pop_back();
                     configMetadata.capabilities = permissionsStr;
+                    status = true;
                     std::cout << "[libPackage] Added package permissions to config metadata: " << permissionsStr << std::endl;
                 }
             }
