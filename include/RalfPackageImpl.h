@@ -133,9 +133,11 @@ namespace packagemanager
          * and necessary resources are allocated.
          * @param package The package to be locked.
          * @param ralfMountInfo Output parameter to hold information about the mounted package.
+         * @param configMetadata Metadata context for the lock operation, threaded through dependency locking and used by
+         * the lock flow to populate capabilities.
          * @return true if the package is locked successfully; false otherwise.
          */
-        bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo);
+        bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo, ConfigMetaData &configMetadata);
 
         /**
          * Unmounts the dependent packages mounted by the specified package.
@@ -179,10 +181,9 @@ namespace packagemanager
 
         /**
          * Adds the permissions from the package metadata to the configuration metadata.
-         * @param package The package whose permissions are to be added.
+         * @param pkgMetadata The package metadata whose permissions are to be added.
          * @param configMetadata The configuration metadata to which the permissions will be added.
-         * @return true if permissions are successfully added; false otherwise.
          */
-        bool addPackagePermissionsToConfigMetadata(const ralf::Package &package, ConfigMetaData &configMetadata);
+        void addPackagePermissionsToConfigMetadata(const ralf::PackageMetaData &pkgMetadata, ConfigMetaData &configMetadata);
     };
 }
