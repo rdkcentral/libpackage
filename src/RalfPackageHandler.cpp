@@ -333,7 +333,7 @@ namespace packagemanager
         }
 
         std::vector<RalfPackageInfo> mountPkgList;
-        auto status = lockPackage(package.value(), mountPkgList);
+        auto status = lockPackage(package.value(), mountPkgList, configMetadata);
         if (status)
         {
             // We need to dump this to a temp file and add it as par of configMetadata
@@ -386,10 +386,13 @@ namespace packagemanager
         configMetadata.appPath = packagePath.string();
         configMetadata.userId = mUserId;   // Ralf user id.
         configMetadata.groupId = mGroupId; // Ralf user group.
+        auto pkgMetadata = package->metaData();
+        if (pkgMetadata)
+            addPackagePermissionsToConfigMetadata(pkgMetadata.value(), configMetadata);
         return Result::SUCCESS;
     }
 
-    bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo)
+    bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo, ConfigMetaData &configMetadata)
     {
         bool status = false;
         if (!mIsInitialized)
@@ -435,7 +438,7 @@ namespace packagemanager
                 break;
             }
 
-            if (!lockPackage(depPackage.value(), ralfMountInfo))
+            if (!lockPackage(depPackage.value(), ralfMountInfo, configMetadata))
             {
                 std::cerr << "[libPackage] Failed to lock dependent package: " << depPackageId << std::endl;
                 status = false;
@@ -447,6 +450,8 @@ namespace packagemanager
             unmountDependentPackages(package);
             return false;
         }
+        // Let us get permissions. from package.
+        addPackagePermissionsToConfigMetadata(pkgMetadata.value(), configMetadata);
 
         // At this point all dependencies are already mounted. if the packages are already mounted, we have metadata, so return.
         if (mMountedPackages.find(pkgVerKey) != mMountedPackages.end())
@@ -690,5 +695,37 @@ namespace packagemanager
         groupId = pwd->pw_gid;
         return true;
     }
+    void RalfPackageImpl::addPackagePermissionsToConfigMetadata(const ralf::PackageMetaData &pkgMetadata, ConfigMetaData &configMetadata)
+    {
+        // Check if the type is application, otherwise we should not be looking for permissions.
+        if (pkgMetadata.type() != ralf::PackageType::Application)
+        {
+            std::cout << "[libPackage] Package type is not application. Skipping permissions extraction." << std::endl;
+            return;
+        }
+        // Permissions are present in applicationInfo section of metadata.
+        auto appInfo = pkgMetadata.applicationInfo();
+        if (appInfo)
+        {
+            auto permissions = appInfo->permissions();
 
+            auto perms = permissions.all();
+            std::string permissionsStr;
+            for (const auto &perm : perms)
+            {
+                permissionsStr += perm + ",";
+            }
+            if (!permissionsStr.empty())
+            {
+                // Remove the trailing comma
+                permissionsStr.pop_back();
+                configMetadata.capabilities = permissionsStr;
+                std::cout << "[libPackage] Added package permissions to config metadata: " << permissionsStr << std::endl;
+            }
+        }
+        else
+        {
+            std::cerr << "[libPackage] No application info found in package metadata." << std::endl;
+        }
+    }
 } // namespace packagemanager
