@@ -17,27 +17,17 @@
 project(package)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_VERBOSE_MAKEFILE OFF CACHE BOOL "Enable verbose build output")
 cmake_minimum_required(VERSION 3.22)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
-
-option(ENABLE_RALF_SUPPORT "Enable RALF support" OFF)
-option (BUILD_TEST_APP "Build test application" OFF)
+option(DISABLE_DEPENDENCY_CHECK "Disable dependency check" ON)
+option(BUILD_TEST_APP "Build test application" OFF)
 
 set(LIBPACKAGE_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-if(ENABLE_RALF_SUPPORT)
-message(STATUS "RALF support is enabled")
-    add_subdirectory(src/ralf)
-else()
-    message(STATUS "Building without RALF support")
-    include_directories(include/legacy)
-    add_subdirectory(src/legacy)
-endif()
+add_subdirectory(src)
 
 if(BUILD_TEST_APP)
     add_subdirectory(app)
 endif()
 
-if(LIBPACKAGE_L1_TESTS)
-    add_subdirectory(tests)
-endif()
+

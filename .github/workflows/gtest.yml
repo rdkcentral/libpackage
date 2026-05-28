@@ -1,4 +1,4 @@
-name: Google Test
+name: build the code
 
 on:
   push:
@@ -11,38 +11,72 @@ jobs:
     runs-on: ubuntu-latest 
 
     steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: |
+          set -x
+          sudo apt-get update 
+          sudo apt-get install cmake openssl libssl-dev libxml2-dev libarchive-dev liblz4-dev -y
+
       - name: Checkout eshelpers
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: rdkcentral/eshelpers
           path: eshelpers
           ref: develop
 
-      - name: Install Dependencies
+      - name: Checkout jsoncpp version 1.9.5
+        uses: actions/checkout@v4
+        with:
+          repository: open-source-parsers/jsoncpp
+          ref: 1.9.5
+          path: jsoncpp
+      - name: Build and install jsoncpp
         run: |
-          set -x
-          sudo apt-get update -y
-          sudo apt install -y libsqlite3-dev libboost-dev libboost-system-dev libboost-filesystem-dev libarchive-dev
-          sudo apt-get install -y lcov
+          mkdir -p jsoncpp/build
+          cd jsoncpp/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+          make
+          make install
+
+      - name: Checkout ralf-utils
+        uses: actions/checkout@v4
+        with:
+          repository: rdkcentral/ralf-utils
+          path: ralf-utils
+          ref: v1.2.0
+          lfs: 'false'
+          fetch-depth: 2          
+
+      - name: Cache ralf-utils build directory
+        uses: actions/cache@v4
+        with:
+          path: ralf-utils/build
+          key: ${{ runner.os }}-ralf-utils-build-${{ hashFiles('ralf-utils/CMakeLists.txt', 'ralf-utils/src/**', 'ralf-utils/include/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ralf-utils-build-
+
+      - name: Build ralf-utils
+        run: |
+          mkdir -p ralf-utils/build
+          cd ralf-utils/build
+          cmake ../ --install-prefix ${GITHUB_WORKSPACE}/install
+          make
+          make install
+
+      - name: Cache main build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: ${{ runner.os }}-main-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'app/**') }}
+          restore-keys: |
+            ${{ runner.os }}-main-build-
 
       - name: Build
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake -DCMAKE_INSTALL_INCLUDEDIR=. -DLIBPACKAGE_L1_TESTS=ON -DCMAKE_CXX_STANDARD=14 -DCMAKE_INCLUDE_PATH="/usr/share/miniconda/include" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage -g -std=c++14 -I${GITHUB_WORKSPACE}/eshelpers/packager" ..
+          cmake  -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" ..
           make
-          ./tests/PackageImplTest
-      - name: Generate Code Coverage
-        run: |
-          lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info
-          lcov --list coverage.info
-
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: code-coverage-report
-          path: build/coverage.info
-

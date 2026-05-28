@@ -17,26 +17,26 @@
 
 
 find_package(libralf REQUIRED)
+include(GNUInstallDirs)
+
 set (PACKAGE_SRCS RalfPackageHandler.cpp)
 
-option(DISABLE_DEPENDENCY_CHECK "Disable dependency check" ON)
+add_library(Package SHARED ${PACKAGE_SRCS})
+set_target_properties(Package PROPERTIES VERSION 2.0.0 SOVERSION 1)
 
 if(DISABLE_DEPENDENCY_CHECK)
     message(STATUS "Dependency check is disabled")
-    add_definitions("-DDISABLE_DEPENDENCY_CHECK")
+    target_compile_definitions(Package PRIVATE DISABLE_DEPENDENCY_CHECK)
 else()
     message(STATUS "Dependency check is enabled")
 endif()
 
-if(NOT RDK_PACKAGE_CERT_PATH STREQUAL "")
+if(DEFINED RDK_PACKAGE_CERT_PATH AND NOT RDK_PACKAGE_CERT_PATH STREQUAL "")
     message(STATUS "Using custom package certificate path: ${RDK_PACKAGE_CERT_PATH}")
-    add_definitions("-DRDK_PACKAGE_CERT_PATH=\"${RDK_PACKAGE_CERT_PATH}\"")
+    target_compile_definitions(Package PRIVATE RDK_PACKAGE_CERT_PATH="${RDK_PACKAGE_CERT_PATH}")
 else()
     message(STATUS "Using default package certificate path")
 endif()
-
-add_library(Package SHARED ${PACKAGE_SRCS})
-set_target_properties(Package PROPERTIES VERSION 1.2.2 SOVERSION 1)
 
 
 if(DAC_APP_PATH)
@@ -48,12 +48,14 @@ if(BUILD_REFERENCE)
 endif()
 
 target_link_libraries(Package PRIVATE ralf jsoncpp)
-target_include_directories(Package PRIVATE  ${LIBPACKAGE_BASE_DIR}/include/ralf)
+target_include_directories(Package PUBLIC
+    $<BUILD_INTERFACE:${LIBPACKAGE_BASE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
-install(TARGETS Package DESTINATION lib)
+install(TARGETS Package DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 install(FILES
-        ${LIBPACKAGE_BASE_DIR}/include/ralf/RalfPackageImpl.h
+        ${LIBPACKAGE_BASE_DIR}/include/RalfPackageImpl.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 

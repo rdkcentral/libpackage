@@ -68,6 +68,7 @@ namespace packagemanager
     private:
         static int getInstalledPackages(std::vector<std::string> &pacakgeList);
         static void getPackageIdAndVersionFromRalfPackage(const std::string &packagePath, std::string &appId, std::string &appVersion);
+        static bool enableDependencyCheck;
 
     public:
         ~RalfPackageImpl() override = default;
@@ -101,6 +102,18 @@ namespace packagemanager
         std::vector<std::unique_ptr<ConfigMetadataKey> > mInstalledPackages;
 
         /**
+         * This function checks the dependencies of the given package and returns true if all dependencies are
+         * satisfied; false otherwise. The dependency check is performed by reading the package metadata and
+         * verifying that all required dependencies are installed and meet the version constraints specified
+         * by the package. If any dependency is missing or does not satisfy the version constraint, the function
+         * returns false.
+         *
+         * @param package The package whose dependencies are to be checked.
+         * @return true if all dependencies are satisfied; false otherwise.
+         */
+        bool checkPackageDependencies(const ralf::Package &package);
+
+        /**
          * Initializes the verification bundle by loading certificates from the specified directory.
          * @return true if at least one certificate was successfully loaded; false otherwise.
          */
@@ -108,21 +121,23 @@ namespace packagemanager
 
         /**
          * Opens a package file and returns a Result containing the Package object.
-         * Sets the passedVerification flag to true if the package verification is successful; false otherwise.
+         * Optionally performs full package verification.
          * @param packageFile The path to the package file.
-         * @param passedVerification Output parameter to indicate if the package verification was successful.
+         * @param performFullVerification If true, calls Package::verify() before returning success.
          * @return A Result containing the Package object if successful; an error otherwise.
          */
-        ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool &passedVerification);
+        ralf::Result<ralf::Package> openPackage(const std::string &packageFile, bool performFullVerification = false);
 
         /**
          * Locks the specified package for exclusive access. The package is verified, dependent packages are mounted,
          * and necessary resources are allocated.
          * @param package The package to be locked.
          * @param ralfMountInfo Output parameter to hold information about the mounted package.
+         * @param configMetadata Metadata context for the lock operation, threaded through dependency locking and used by
+         * the lock flow to populate capabilities.
          * @return true if the package is locked successfully; false otherwise.
          */
-        bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo);
+        bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo, ConfigMetaData &configMetadata);
 
         /**
          * Unmounts the dependent packages mounted by the specified package.
@@ -163,6 +178,12 @@ namespace packagemanager
          * @return true if user id and group id are successfully retrieved; false otherwise.
          */
         static bool getRalfUserInfo(uid_t &userId, gid_t &groupId);
-    };
 
+        /**
+         * Adds the permissions from the package metadata to the configuration metadata.
+         * @param pkgMetadata The package metadata whose permissions are to be added.
+         * @param configMetadata The configuration metadata to which the permissions will be added.
+         */
+        void addPackagePermissionsToConfigMetadata(const ralf::PackageMetaData &pkgMetadata, ConfigMetaData &configMetadata);
+    };
 }
