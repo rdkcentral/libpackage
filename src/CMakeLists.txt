@@ -39,8 +39,10 @@ else()
 endif()
 
 
-if(DAC_APP_PATH)
+if(DEFINED DAC_APP_PATH  AND NOT DAC_APP_PATH STREQUAL "")
     target_compile_definitions(Package PRIVATE DAC_APP_PATH="${DAC_APP_PATH}")
+else()
+    message(FATAL_ERROR "Missing DAC_APP_PATH field")
 endif()
 
 if(BUILD_REFERENCE)

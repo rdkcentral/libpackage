@@ -21,10 +21,17 @@ set(CMAKE_VERBOSE_MAKEFILE OFF CACHE BOOL "Enable verbose build output")
 cmake_minimum_required(VERSION 3.22)
 
 option(DISABLE_DEPENDENCY_CHECK "Disable dependency check" ON)
+option(ENABLE_RALF_SUPPORT "Enabled RALF support" ON)
 option(BUILD_TEST_APP "Build test application" OFF)
 
 set(LIBPACKAGE_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-add_subdirectory(src)
+
+if(ENABLE_RALF_SUPPORT)
+    message(STATUS "RALF support is enabled")
+    add_subdirectory(src)
+else()
+    message(FATAL_ERROR "only RALF configuration is supported")
+endif()
 
 if(BUILD_TEST_APP)
     add_subdirectory(app)

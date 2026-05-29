@@ -78,5 +78,5 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake  -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" ..
+          cmake  -DCMAKE_INSTALL_INCLUDEDIR=. -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install -DCMAKE_CXX_STANDARD=17  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -g -std=c++17 -I${GITHUB_WORKSPACE}/eshelpers/packager -I${GITHUB_WORKSPACE}/install/include -L${GITHUB_WORKSPACE}/install/lib" -DENABLE_RALF_SUPPORT=ON  -DDAC_APP_PATH=/tmp ..
           make
