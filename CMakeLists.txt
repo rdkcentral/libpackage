@@ -26,7 +26,7 @@ option(BUILD_TEST_APP "Build test application" OFF)
 set(LIBPACKAGE_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(ENABLE_RALF_SUPPORT)
-    message(STATUS "RALF support is enabled)
+    message(STATUS "RALF support is enabled")
     add_subdirectory(src)
 else()
     message(FATAL_ERROR "only RALF configuration is supported")
