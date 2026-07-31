@@ -728,4 +728,35 @@ namespace packagemanager
             std::cerr << "[libPackage] No application info found in package metadata." << std::endl;
         }
     }
+    packagemanager::Result RalfPackageImpl::GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config)
+    {
+        // We need to open the package, retrieve the metadata and return it as a JSON string.
+        //  For now, we will return SUCCESS without actually implementing this.
+        std::cout << "[libPackage] RalfPackageImpl::GetInstalledPackageMetadata called with packageId: " << packageId << ", version: " << version << std::endl;
+
+        if (!mIsInitialized)
+        {
+            std::cerr << "[libPackage] RalfPackageImpl::GetInstalledPackageMetadata called before initialization." << std::endl;
+            return Result::FAILED;
+        }
+        // Step 1: Determine the package path
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+        auto package = openPackage(packagePath);
+        if (!package)
+        {
+            std::cerr << "[libPackage] Failed to open package for getting installed metadata: " << packagePath.string() << std::endl;
+            return Result::FAILED;
+        }
+        auto packagejson = package->auxMetaDataFile(RDK_PACKAGE_CONFIG_MIME_TYPE);
+        if (packagejson)
+        {
+            const auto contents = packagejson->readAll();
+            if (contents)
+            {
+                config = std::string(reinterpret_cast<const char *>(contents->data()), contents->size());
+            }
+        }
+
+        return Result::SUCCESS;
+    }
 } // namespace packagemanager
