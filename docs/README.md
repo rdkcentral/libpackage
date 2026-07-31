@@ -72,7 +72,7 @@ The southbound interaction is with the `libralf` library, which handles the RALF
 
 Communication with the app management layer is entirely through the `IPackageImpl` interface via direct in-process function calls. JSON serialisation via `jsoncpp` is scoped to writing mount metadata to the temporary file whose path is returned to the caller via `ConfigMetaData.ralfPkgPath`.
 
-Package files are stored persistently on the filesystem at `DAC_APP_PATH/{packageId}/{version}/package.ralf`. Mount points are created transiently under `/tmp/mounts/{packageId}_{version}/rootfs/` and are cleaned up on `Unlock()`. Configuration metadata files (`config.json`) are written alongside each mount point and are re-used on subsequent lock requests to avoid redundant extraction from the archive.
+Package files are stored persistently on the filesystem at `DAC_APP_PATH/{packageId}/{version}/package.ralf`. Mount points are created transiently under `/tmp/mounts/{packageId}_{version}/rootfs/` and are unmounted on `Unlock()` (the mount directories themselves are not removed by `libpackage`). Configuration metadata files (`config.json`) are written alongside each mount point and are re-used on subsequent lock requests to avoid redundant extraction from the archive.
 
 ```mermaid
 graph TD
@@ -155,12 +155,12 @@ sequenceDiagram
 
 #### Runtime State Changes
 
-Once active, `libpackage` responds exclusively to direct API calls. Its internal state evolves only through those calls: the `mInstalledPackages` list grows on `Install()` and shrinks on `Uninstall()`, and the `mMountedPackages` map grows on `Lock()` and shrinks on `Unlock()`.
+Once active, `libpackage` responds exclusively to direct API calls. Its internal state evolves only through those calls: the `mInstalledPackages` list grows on `Install()`. `Uninstall()` removes package files from `DAC_APP_PATH` but does not currently remove entries from `mInstalledPackages`, and the `mMountedPackages` map grows on `Lock()` and shrinks on `Unlock()`.
 
 **State Change Triggers:**
 
 - `Install()` called with a valid, verified package causes the package to be added to `mInstalledPackages` and its file to be copied to `DAC_APP_PATH`.
-- `Lock()` called for an already-mounted package increments that package's mount count rather than performing a new mount, ensuring idempotent behaviour under concurrent launch requests for the same app.
+- `Lock()` called for an already-mounted package increments that package's mount count rather than performing a new mount, ensuring idempotent behaviour for repeated lock calls for the same app.
 - `Uninstall()` removes the package files from `DAC_APP_PATH`. When a package has active mounts, `Unlock()` should be called prior to `Uninstall()` to cleanly release the mount.
 
 **Context Switching Scenarios:**
