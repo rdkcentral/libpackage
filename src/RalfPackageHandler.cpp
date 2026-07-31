@@ -363,7 +363,25 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open package for unlocking: " << packagePath.string() << std::endl;
             return Result::FAILED;
         }
-        return unmountDependentPackages(package.value()) ? Result::SUCCESS : Result::FAILED;
+
+        bool unmountResult = unmountDependentPackages(package.value());
+
+        // Clean up temporary metadata file created during Lock
+        auto tempFilePath = std::filesystem::temp_directory_path() / (packageId + "_" + version + "_metadata.json");
+        try
+        {
+            if (std::filesystem::exists(tempFilePath))
+            {
+                std::filesystem::remove(tempFilePath);
+                std::cout << "[libPackage] Removed temporary metadata file: " << tempFilePath << std::endl;
+            }
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
+            std::cerr << "[libPackage] Error removing temporary metadata file " << tempFilePath << ": " << e.what() << std::endl;
+        }
+
+        return unmountResult ? Result::SUCCESS : Result::FAILED;
     }
 
     Result RalfPackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
@@ -608,6 +626,22 @@ namespace packagemanager
         {
             // Need to unmount the package
             it->second->packageMount->unmount();
+
+            // Clean up mount directories
+            auto mountBasePath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / depPackageKey;
+            try
+            {
+                if (std::filesystem::exists(mountBasePath))
+                {
+                    std::filesystem::remove_all(mountBasePath);
+                    std::cout << "[libPackage] Removed mount directory: " << mountBasePath << std::endl;
+                }
+            }
+            catch (const std::filesystem::filesystem_error &e)
+            {
+                std::cerr << "[libPackage] Error removing mount directory " << mountBasePath << ": " << e.what() << std::endl;
+            }
+
             mMountedPackages.erase(it);
         }
 
