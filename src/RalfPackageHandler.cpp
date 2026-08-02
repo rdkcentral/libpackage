@@ -764,8 +764,8 @@ namespace packagemanager
     }
     packagemanager::Result RalfPackageImpl::GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config)
     {
-        // We need to open the package, retrieve the metadata and return it as a JSON string.
-        //  For now, we will return SUCCESS without actually implementing this.
+        // Open the installed package and return its config metadata (JSON) as a string.
+        // Returns Result::FAILED if the package cannot be opened or the metadata cannot be read.
         std::cout << "[libPackage] RalfPackageImpl::GetInstalledPackageMetadata called with packageId: " << packageId << ", version: " << version << std::endl;
 
         if (!mIsInitialized)
