@@ -33,10 +33,11 @@
 namespace
 {
     static constexpr const char *RALF_USER_NAME = "ralf";
-    static constexpr const char *AppInstallationPath = DAC_APP_PATH;
-    static constexpr const char *RalfPackage = "package.ralf";
-    static constexpr const char *pkgCertDirPath = RDK_PACKAGE_CERT_PATH;
-    static constexpr const char *BuildReference = BUILD_REFERENCE;
+    static constexpr const char *APP_INSTALL_BASE_PATH = DAC_APP_PATH;
+    static constexpr const char *RALF_PACKAGE_FILE = "package.ralf";
+    static constexpr const char *PACKAGE_METADATA_FILE = "package.json";
+    static constexpr const char *PACKAGE_CERT_PATH_DIR = RDK_PACKAGE_CERT_PATH;
+    static constexpr const char *BUILD_VERSION = BUILD_REFERENCE;
 }
 namespace packagemanager
 {
@@ -48,19 +49,19 @@ namespace packagemanager
 
     RalfPackageImpl::RalfPackageImpl()
     {
-        std::cout << "[libPackage] Code revision : " << BuildReference << std::endl;
+        std::cout << "[libPackage] Code revision : " << BUILD_VERSION << std::endl;
     }
-    int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &pacakgeList)
+    int RalfPackageImpl::getInstalledPackages(std::vector<std::string> &packageList)
     {
-        std::cout << "[libPackage] Looking for installed packages in  " << AppInstallationPath << std::endl;
-        for (const auto &entry : std::filesystem::recursive_directory_iterator(AppInstallationPath))
+        std::cout << "[libPackage] Looking for installed packages in  " << APP_INSTALL_BASE_PATH << std::endl;
+        for (const auto &entry : std::filesystem::recursive_directory_iterator(APP_INSTALL_BASE_PATH))
         {
-            if (std::filesystem::is_regular_file(entry.path()) && entry.path().filename() == RalfPackage)
+            if (std::filesystem::is_regular_file(entry.path()) && entry.path().filename() == RALF_PACKAGE_FILE)
             {
-                pacakgeList.push_back(entry.path().string());
+                packageList.push_back(entry.path().string());
             }
         }
-        return pacakgeList.size();
+        return packageList.size();
     }
 
     bool RalfPackageImpl::identifyDependencyVersion(const std::string &depPackageId, const ralf::VersionConstraint &depPackageVersion, std::string &depInstalledVersion)
@@ -88,19 +89,75 @@ namespace packagemanager
         return false;
     }
 
-    void RalfPackageImpl::getPackageIdAndVersionFromRalfPackage(const std::string &packagePath, std::string &appId, std::string &appVersion)
+    void RalfPackageImpl::getPackageIdAndVersionFromRalfPackage(const std::filesystem::path &metadataPath, std::string &appId, std::string &appVersion)
     {
-        std::filesystem::path p(packagePath);
-        auto parentPath = p.parent_path();
-        appVersion = parentPath.filename().string();
-        auto grandParentPath = parentPath.parent_path();
-        appId = grandParentPath.filename().string();
+        // Read the json file
+        std::ifstream file(metadataPath);
+        if (!file.is_open())
+        {
+            std::cerr << "[libPackage] Failed to open metadata file: " << metadataPath << std::endl;
+            return;
+        }
+        Json::Value root;
+        file >> root;
+        if (root.isMember("id"))
+        {
+            appId = root["id"].asString();
+        }
+        if (root.isMember("version"))
+        {
+            appVersion = root["version"].asString();
+        }
+        file.close();
     }
 
     std::shared_ptr<IPackageImpl> IPackageImpl::instance()
     {
         std::shared_ptr<IPackageImpl> packageImpl = std::make_shared<RalfPackageImpl>();
         return packageImpl;
+    }
+    bool RalfPackageImpl::isLegacyInstallPath(const std::string &packagePath)
+    {
+        auto parentPath = std::filesystem::path(packagePath).parent_path(); // remove package.ralf to get appversion directory
+        auto grandParentPath = parentPath.parent_path();                    // Remove appversion directory to get appid directory
+        return grandParentPath != APP_INSTALL_BASE_PATH;                    // If the grandparent path is not the app install base path, it is a legacy install path
+    }
+
+    bool RalfPackageImpl::migrateLegacyPackage(const std::string &packagePath, std::filesystem::path &newLocation)
+    {
+        /* Legacy packages are installed in the APP_INSTALL_BASE_PATH/ appid /appversion directory.
+           So if the two directories up is base path
+        */
+        if (!isLegacyInstallPath(packagePath))
+        {
+            newLocation = packagePath;
+            return true;
+        }
+        // Determine the new location for the legacy package
+        auto parentPath = std::filesystem::path(packagePath).parent_path(); // remove package.ralf to get appversion directory
+        newLocation = parentPath.parent_path();                             // Move up one directory to get the new location appid directory
+        newLocation = newLocation / RALF_PACKAGE_FILE;
+
+        // Perform the migration by moving the package to the new location
+        std::error_code ec;
+        std::filesystem::rename(packagePath, newLocation, ec);
+        if (ec)
+        {
+            std::cerr << "[libPackage] Failed to migrate package from " << packagePath << " to " << newLocation << ": " << ec.message() << std::endl;
+            return false;
+        }
+        // Dump the package metadata after migration
+        std::cout << "[libPackage] Successfully migrated package to new location: " << newLocation << std::endl;
+        auto package = openPackage(newLocation);
+        if (!package)
+        {
+            std::cerr << "[libPackage] Failed to open migrated package at: " << newLocation << std::endl;
+            return false;
+        }
+        // Dump the package metada to the metadata file
+        auto metadataPath = newLocation.parent_path() / PACKAGE_METADATA_FILE;
+        dumpPackageInfo(package.value(), metadataPath);
+        return true;
     }
 
     /**
@@ -120,16 +177,16 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to get Ralf user info. Initialization failed." << std::endl;
             return Result::FAILED;
         }
-        // Check if AppInstallationPath exists
+        // Check if APP_INSTALL_BASE_PATH exists
         if (!initializeVerificationBundle())
         {
-            std::cerr << "[libPackage] Failed to initialize verification bundle. No certificates loaded from: " << pkgCertDirPath << std::endl;
+            std::cerr << "[libPackage] Failed to initialize verification bundle. No certificates loaded from: " << PACKAGE_CERT_PATH_DIR << std::endl;
             return Result::FAILED;
         }
-        if (!std::filesystem::exists(AppInstallationPath))
+        if (!std::filesystem::exists(APP_INSTALL_BASE_PATH))
         {
-            std::cout << "[libPackage] App installation path does not exist. Creating: " << AppInstallationPath << std::endl;
-            std::filesystem::create_directories(AppInstallationPath);
+            std::cout << "[libPackage] App installation path does not exist. Creating: " << APP_INSTALL_BASE_PATH << std::endl;
+            std::filesystem::create_directories(APP_INSTALL_BASE_PATH);
         }
         else
         {
@@ -140,17 +197,29 @@ namespace packagemanager
 
             for (auto packagePath : installedPackages)
             {
-                std::string appId, appVersion;
-                getPackageIdAndVersionFromRalfPackage(packagePath, appId, appVersion);
-                mInstalledPackages.push_back(std::make_unique<ConfigMetadataKey>(std::make_pair(appId, appVersion)));
-                std::cout << "[libPackage] Found installed package: " << appId << ", version: " << appVersion << std::endl;
-                ConfigMetaData configMetadata;
-                configMetadata.appPath = std::filesystem::path(packagePath);
-                configMetadata.userId = mUserId;   // Ralf user id.
-                configMetadata.groupId = mGroupId; // Ralf user group.
+                std::filesystem::path newLocation;
+                if (migrateLegacyPackage(packagePath, newLocation))
+                {
+                    // Read the package metadata from the new location after migration
+                    // Read the json file containing the package metadata from the new location
+                    auto migratedMetadataPath = newLocation.parent_path() / PACKAGE_METADATA_FILE;
 
-                ConfigMetadataKey appKey = {appId, appVersion};
-                aConfigMetadata[appKey] = configMetadata;
+                    std::string appId, appVersion;
+                    getPackageIdAndVersionFromRalfPackage(migratedMetadataPath, appId, appVersion);
+                    mInstalledPackages.push_back(std::make_unique<ConfigMetadataKey>(std::make_pair(appId, appVersion)));
+                    std::cout << "[libPackage] Found installed package: " << appId << ", version: " << appVersion << std::endl;
+                    ConfigMetaData configMetadata;
+                    configMetadata.appPath = newLocation;
+                    configMetadata.userId = mUserId;   // Ralf user id.
+                    configMetadata.groupId = mGroupId; // Ralf user group.
+
+                    ConfigMetadataKey appKey = {appId, appVersion};
+                    aConfigMetadata[appKey] = configMetadata;
+                }
+                else
+                {
+                    std::cerr << "[libPackage] Skipping legacy package: " << packagePath << std::endl;
+                }
             }
         }
         mIsInitialized = true;
@@ -159,18 +228,18 @@ namespace packagemanager
     bool RalfPackageImpl::initializeVerificationBundle()
     {
         bool certLoaded = false;
-        std::cout << "[libPackage] Initializing verification bundle from certificates in: " << pkgCertDirPath << std::endl;
+        std::cout << "[libPackage] Initializing verification bundle from certificates in: " << PACKAGE_CERT_PATH_DIR << std::endl;
         // Check whether directory exists
-        if (!std::filesystem::exists(pkgCertDirPath))
+        if (!std::filesystem::exists(PACKAGE_CERT_PATH_DIR))
         {
-            std::cerr << "[libPackage] Certificate directory does not exist: " << pkgCertDirPath << std::endl;
+            std::cerr << "[libPackage] Certificate directory does not exist: " << PACKAGE_CERT_PATH_DIR << std::endl;
             return false;
         }
-        // Load the certificate from pkgCertDirPath
+        // Load the certificate from PACKAGE_CERT_PATH_DIR
         // Iterate through all the certificates in the directory
         std::filesystem::directory_options options = std::filesystem::directory_options::skip_permission_denied;
         std::error_code ec;
-        std::filesystem::directory_iterator dirIter(pkgCertDirPath, options, ec);
+        std::filesystem::directory_iterator dirIter(PACKAGE_CERT_PATH_DIR, options, ec);
         if (ec)
         {
             std::cerr << "[libPackage] Error accessing certificate directory: " << ec.message() << std::endl;
@@ -219,11 +288,10 @@ namespace packagemanager
         }
 
         // Create the directory structure
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version;
-        std::filesystem::create_directories(packagePath);
+        auto destRalfPackagePath = getInstalledPackagePath(packageId);
+        std::filesystem::create_directories(destRalfPackagePath);
 
         //  Copy the package to the installation directory
-        auto destRalfPackagePath = packagePath / RalfPackage;
         try
         {
             std::filesystem::copy_file(fileLocator, destRalfPackagePath, std::filesystem::copy_options::overwrite_existing);
@@ -232,6 +300,10 @@ namespace packagemanager
             configMetadata.userId = mUserId;   // Ralf user id.
             configMetadata.groupId = mGroupId; // Ralf user group.
             std::cout << "[libPackage] Installed package to: " << configMetadata.appPath << std::endl;
+
+            // Dump the package metada to the metadata file
+            auto metadataPath = getInstalledPath(packageId) / PACKAGE_METADATA_FILE;
+            dumpPackageInfo(package.value(), metadataPath);
         }
         catch (const std::filesystem::filesystem_error &e)
         {
@@ -288,7 +360,7 @@ namespace packagemanager
         }
         std::cout << "[libPackage] RalfPackageImpl::Uninstall called with packageId: " << packageId << std::endl;
         // For the time being, we have to remove all the files in the package installation path, until we get a version with specific version to uninstall
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId;
+        auto packagePath = getInstalledPath(packageId);
         try
         {
             std::filesystem::remove_all(packagePath);
@@ -301,6 +373,15 @@ namespace packagemanager
             return Result::FAILED;
         }
         return Result::SUCCESS;
+    }
+
+    std::filesystem::path RalfPackageImpl::getInstalledPath(const std::string &packageId)
+    {
+        return std::filesystem::path(APP_INSTALL_BASE_PATH) / packageId;
+    }
+    std::filesystem::path RalfPackageImpl::getInstalledPackagePath(const std::string &packageId)
+    {
+        return std::filesystem::path(APP_INSTALL_BASE_PATH) / packageId / RALF_PACKAGE_FILE;
     }
 
     /**
@@ -324,7 +405,7 @@ namespace packagemanager
             return Result::FAILED;
         }
         // Step 1: Determine the package path
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+        auto packagePath = getInstalledPackagePath(packageId);
         auto package = openPackage(packagePath);
         if (!package)
         {
@@ -356,32 +437,14 @@ namespace packagemanager
             std::cerr << "[libPackage] RalfPackageImpl::Unlock called before initialization." << std::endl;
             return Result::FAILED;
         }
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+        auto packagePath = getInstalledPackagePath(packageId);
         auto package = openPackage(packagePath);
         if (!package)
         {
             std::cerr << "[libPackage] Failed to open package for unlocking: " << packagePath.string() << std::endl;
             return Result::FAILED;
         }
-
-        bool unmountResult = unmountDependentPackages(package.value());
-
-        // Clean up temporary metadata file created during Lock
-        auto tempFilePath = std::filesystem::temp_directory_path() / (packageId + "_" + version + "_metadata.json");
-        try
-        {
-            if (std::filesystem::exists(tempFilePath))
-            {
-                std::filesystem::remove(tempFilePath);
-                std::cout << "[libPackage] Removed temporary metadata file: " << tempFilePath << std::endl;
-            }
-        }
-        catch (const std::filesystem::filesystem_error &e)
-        {
-            std::cerr << "[libPackage] Error removing temporary metadata file " << tempFilePath << ": " << e.what() << std::endl;
-        }
-
-        return unmountResult ? Result::SUCCESS : Result::FAILED;
+        return unmountDependentPackages(package.value()) ? Result::SUCCESS : Result::FAILED;
     }
 
     Result RalfPackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
@@ -447,7 +510,7 @@ namespace packagemanager
                 break;
             }
 
-            auto fileLocator = std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage;
+            auto fileLocator = getInstalledPackagePath(depPackageId);
             auto depPackage = openPackage(fileLocator);
             if (!depPackage)
             {
@@ -590,8 +653,8 @@ namespace packagemanager
 
             if (identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
             {
-                auto fileLocator = std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage;
-                auto depPackage = openPackage(fileLocator);
+                auto depPackagePath = getInstalledPackagePath(depPackageId);
+                auto depPackage = openPackage(depPackagePath);
                 if (depPackage)
                 {
                     if (!unmountDependentPackages(depPackage.value()))
@@ -626,22 +689,6 @@ namespace packagemanager
         {
             // Need to unmount the package
             it->second->packageMount->unmount();
-
-            // Clean up mount directories
-            auto mountBasePath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / depPackageKey;
-            try
-            {
-                if (std::filesystem::exists(mountBasePath))
-                {
-                    std::filesystem::remove_all(mountBasePath);
-                    std::cout << "[libPackage] Removed mount directory: " << mountBasePath << std::endl;
-                }
-            }
-            catch (const std::filesystem::filesystem_error &e)
-            {
-                std::cerr << "[libPackage] Error removing mount directory " << mountBasePath << ": " << e.what() << std::endl;
-            }
-
             mMountedPackages.erase(it);
         }
 

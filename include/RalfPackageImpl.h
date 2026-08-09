@@ -66,8 +66,8 @@ namespace packagemanager
     class RalfPackageImpl : public IPackageImpl
     {
     private:
-        static int getInstalledPackages(std::vector<std::string> &pacakgeList);
-        static void getPackageIdAndVersionFromRalfPackage(const std::string &packagePath, std::string &appId, std::string &appVersion);
+        static int getInstalledPackages(std::vector<std::string> &packageList);
+        static void getPackageIdAndVersionFromRalfPackage(const std::filesystem::path &metadataPath, std::string &appId, std::string &appVersion);
         static bool enableDependencyCheck;
 
     public:
@@ -185,5 +185,34 @@ namespace packagemanager
          * @param configMetadata The configuration metadata to which the permissions will be added.
          */
         void addPackagePermissionsToConfigMetadata(const ralf::PackageMetaData &pkgMetadata, ConfigMetaData &configMetadata);
+
+        /**
+         * Retrieves the installed path of the specified package.
+         * @param packageId The ID of the package whose installed path is to be retrieved.
+         * @return The filesystem path where the package is installed.
+         */
+        std::filesystem::path getInstalledPath(const std::string &packageId);
+        /**
+         * Retrieves the installed package path of the specified package.
+         * @param packageId The ID of the package whose installed package path is to be retrieved.
+         * @return The filesystem path where the package is installed.
+         */
+
+        std::filesystem::path getInstalledPackagePath(const std::string &packageId);
+
+        /**
+         * Migrates a legacy package to the new location.
+         * @param packagePath The path to the legacy package.
+         * @param newLocation Output parameter to hold the new location of the migrated package.
+         * @return true if the migration is successful; false otherwise.
+         */
+        bool migrateLegacyPackage(const std::string &packagePath, std::filesystem::path &newLocation);
+
+        /**
+         * Checks if the given package path corresponds to a legacy installation path.
+         * @param packagePath The path to the package to be checked.
+         * @return true if the package path is a legacy installation path; false otherwise.
+         */
+        bool isLegacyInstallPath(const std::string &packagePath);
     };
 }
