@@ -288,13 +288,14 @@ namespace packagemanager
         }
 
         // Create the directory structure
-        auto destRalfPackagePath = getInstalledPackagePath(packageId);
+        auto destRalfPackagePath = getInstalledPath(packageId);
         std::filesystem::create_directories(destRalfPackagePath);
+        auto destRalfPackageFile = getInstalledPackagePath(packageId);
 
         //  Copy the package to the installation directory
         try
         {
-            std::filesystem::copy_file(fileLocator, destRalfPackagePath, std::filesystem::copy_options::overwrite_existing);
+            std::filesystem::copy_file(fileLocator, destRalfPackageFile, std::filesystem::copy_options::overwrite_existing);
             auto appPath = destRalfPackagePath.string();
             configMetadata.appPath = std::move(appPath);
             configMetadata.userId = mUserId;   // Ralf user id.
@@ -302,7 +303,7 @@ namespace packagemanager
             std::cout << "[libPackage] Installed package to: " << configMetadata.appPath << std::endl;
 
             // Dump the package metada to the metadata file
-            auto metadataPath = getInstalledPath(packageId) / PACKAGE_METADATA_FILE;
+            auto metadataPath = destRalfPackagePath / PACKAGE_METADATA_FILE;
             dumpPackageInfo(package.value(), metadataPath);
         }
         catch (const std::filesystem::filesystem_error &e)
