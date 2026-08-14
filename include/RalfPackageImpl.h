@@ -84,6 +84,8 @@ namespace packagemanager
         Result Unlock(const std::string &packageId, const std::string &version) override;
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
 
+        Result GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config) override;
+
     private:
         // Flag to check initialisation status
         bool mIsInitialized = false;
