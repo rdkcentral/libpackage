@@ -300,6 +300,9 @@ namespace packagemanager
                 << "[libPackage] Error uninstalling package: " << e.what() << std::endl;
             return Result::FAILED;
         }
+
+        // Keep in-memory installed package index in sync with filesystem uninstall.
+        mInstalledPackagesById.erase(packageId);
         return Result::SUCCESS;
     }
 
@@ -713,7 +716,11 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open output file: " << outputPath << std::endl;
             return false;
         }
-        outputFile << root.toStyledString();
+
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = "";
+        std::unique_ptr<Json::StreamWriter> writer(writerBuilder.newStreamWriter());
+        writer->write(root, &outputFile);
         outputFile.close();
         return true;
     }
@@ -781,15 +788,23 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open package for getting installed metadata: " << packagePath.string() << std::endl;
             return Result::FAILED;
         }
+
+        config.clear();
         auto packagejson = package->auxMetaDataFile(RDK_PACKAGE_CONFIG_MIME_TYPE);
-        if (packagejson)
+        if (!packagejson)
         {
-            const auto contents = packagejson->readAll();
-            if (contents)
-            {
-                config = std::string(reinterpret_cast<const char *>(contents->data()), contents->size());
-            }
+            std::cerr << "[libPackage] Installed package metadata not found for: " << packagePath.string() << std::endl;
+            return Result::FAILED;
         }
+
+        const auto contents = packagejson->readAll();
+        if (!contents)
+        {
+            std::cerr << "[libPackage] Failed to read installed package metadata for: " << packagePath.string() << std::endl;
+            return Result::FAILED;
+        }
+
+        config = std::string(reinterpret_cast<const char *>(contents->data()), contents->size());
 
         return Result::SUCCESS;
     }
