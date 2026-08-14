@@ -65,24 +65,25 @@ namespace packagemanager
 
     bool RalfPackageImpl::identifyDependencyVersion(const std::string &depPackageId, const ralf::VersionConstraint &depPackageVersion, std::string &depInstalledVersion)
     {
-        for (const auto &pkgInfo : mInstalledPackages)
+        const auto installedIt = mInstalledPackagesById.find(depPackageId);
+        if (installedIt == mInstalledPackagesById.end())
         {
-            if (pkgInfo->first == depPackageId)
+            return false;
+        }
+
+        for (const auto &pkgversion : installedIt->second)
+        {
+            auto result = ralf::VersionNumber::fromString(pkgversion);
+            if (!result)
             {
-                // See of the package version associated works
-                const auto &pkgversion = pkgInfo->second;
-                auto result = ralf::VersionNumber::fromString(pkgversion);
-                if (!result)
-                {
-                    std::cerr << "[libPackage] Failed to parse version: " << pkgversion << std::endl;
-                    continue;
-                }
-                ralf::VersionNumber versionNumber = result.value();
-                if (depPackageVersion.isSatisfiedBy(versionNumber))
-                {
-                    depInstalledVersion = pkgversion;
-                    return true;
-                }
+                std::cerr << "[libPackage] Failed to parse version: " << pkgversion << std::endl;
+                continue;
+            }
+            ralf::VersionNumber versionNumber = result.value();
+            if (depPackageVersion.isSatisfiedBy(versionNumber))
+            {
+                depInstalledVersion = pkgversion;
+                return true;
             }
         }
         return false;
@@ -142,7 +143,7 @@ namespace packagemanager
             {
                 std::string appId, appVersion;
                 getPackageIdAndVersionFromRalfPackage(packagePath, appId, appVersion);
-                mInstalledPackages.push_back(std::make_unique<ConfigMetadataKey>(std::make_pair(appId, appVersion)));
+                mInstalledPackagesById[appId].push_back(appVersion);
                 std::cout << "[libPackage] Found installed package: " << appId << ", version: " << appVersion << std::endl;
                 ConfigMetaData configMetadata;
                 configMetadata.appPath = std::filesystem::path(packagePath);
@@ -240,8 +241,7 @@ namespace packagemanager
                 << "[libPackage] Error installing package: " << e.what() << std::endl;
             return Result::FAILED;
         }
-        std::unique_ptr<ConfigMetadataKey> appIdVer = std::make_unique<ConfigMetadataKey>(std::make_pair(packageId, version));
-        mInstalledPackages.push_back(std::move(appIdVer));
+        mInstalledPackagesById[packageId].push_back(version);
         return Result::SUCCESS;
     }
     bool RalfPackageImpl::checkPackageDependencies(const ralf::Package &package)

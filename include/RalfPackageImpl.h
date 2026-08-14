@@ -22,6 +22,7 @@
 #include <vector>
 #include <utility>
 #include <memory>
+#include <unordered_map>
 #include <IPackageImpl.h>
 #include <ralf/Package.h>
 #include <ralf/VersionConstraint.h>
@@ -99,7 +100,7 @@ namespace packagemanager
         // For package verification
         ralf::VerificationBundle mVerificationBundle;
 
-        std::vector<std::unique_ptr<ConfigMetadataKey> > mInstalledPackages;
+        std::unordered_map<std::string, std::vector<std::string> > mInstalledPackagesById;
 
         /**
          * This function checks the dependencies of the given package and returns true if all dependencies are
