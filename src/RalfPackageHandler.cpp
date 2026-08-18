@@ -363,7 +363,25 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open package for unlocking: " << packagePath.string() << std::endl;
             return Result::FAILED;
         }
-        return unmountDependentPackages(package.value()) ? Result::SUCCESS : Result::FAILED;
+
+        bool unmountResult = unmountDependentPackages(package.value());
+
+        // Clean up temporary metadata file created during Lock
+        auto tempFilePath = std::filesystem::temp_directory_path() / (packageId + "_" + version + "_metadata.json");
+        try
+        {
+            if (std::filesystem::exists(tempFilePath))
+            {
+                std::filesystem::remove(tempFilePath);
+                std::cout << "[libPackage] Removed temporary metadata file: " << tempFilePath << std::endl;
+            }
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
+            std::cerr << "[libPackage] Error removing temporary metadata file " << tempFilePath << ": " << e.what() << std::endl;
+        }
+
+        return unmountResult ? Result::SUCCESS : Result::FAILED;
     }
 
     Result RalfPackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
@@ -608,6 +626,22 @@ namespace packagemanager
         {
             // Need to unmount the package
             it->second->packageMount->unmount();
+
+            // Clean up mount directories
+            auto mountBasePath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / depPackageKey;
+            try
+            {
+                if (std::filesystem::exists(mountBasePath))
+                {
+                    std::filesystem::remove_all(mountBasePath);
+                    std::cout << "[libPackage] Removed mount directory: " << mountBasePath << std::endl;
+                }
+            }
+            catch (const std::filesystem::filesystem_error &e)
+            {
+                std::cerr << "[libPackage] Error removing mount directory " << mountBasePath << ": " << e.what() << std::endl;
+            }
+
             mMountedPackages.erase(it);
         }
 
@@ -727,5 +761,36 @@ namespace packagemanager
         {
             std::cerr << "[libPackage] No application info found in package metadata." << std::endl;
         }
+    }
+    packagemanager::Result RalfPackageImpl::GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config)
+    {
+        // Open the installed package and return its config metadata (JSON) as a string.
+        // Returns Result::FAILED if the package cannot be opened or the metadata cannot be read.
+        std::cout << "[libPackage] RalfPackageImpl::GetInstalledPackageMetadata called with packageId: " << packageId << ", version: " << version << std::endl;
+
+        if (!mIsInitialized)
+        {
+            std::cerr << "[libPackage] RalfPackageImpl::GetInstalledPackageMetadata called before initialization." << std::endl;
+            return Result::FAILED;
+        }
+        // Step 1: Determine the package path
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+        auto package = openPackage(packagePath);
+        if (!package)
+        {
+            std::cerr << "[libPackage] Failed to open package for getting installed metadata: " << packagePath.string() << std::endl;
+            return Result::FAILED;
+        }
+        auto packagejson = package->auxMetaDataFile(RDK_PACKAGE_CONFIG_MIME_TYPE);
+        if (packagejson)
+        {
+            const auto contents = packagejson->readAll();
+            if (contents)
+            {
+                config = std::string(reinterpret_cast<const char *>(contents->data()), contents->size());
+            }
+        }
+
+        return Result::SUCCESS;
     }
 } // namespace packagemanager
