@@ -31,7 +31,7 @@
 
 #include <fcntl.h>  // For open()
 #include <unistd.h> // For fsync()/close()
-#include <pwd.h> //For getting user id and group id of ralf user
+#include <pwd.h>    //For getting user id and group id of ralf user
 
 namespace
 {
@@ -297,11 +297,11 @@ namespace packagemanager
             return Result::FAILED;
         }
         std::cout << "[libPackage] RalfPackageImpl::Install called with packageId: " << packageId << ", version: " << version << ", fileLocator: " << fileLocator << std::endl;
-        // packageId/version are caller-supplied and used in filesystem paths below; reject
-        // anything that is not a path-safe key before touching the filesystem.
-        if (!isPathSafePackageKey(packageId, version))
+        // Version is intentionally ignored for install time path resolution and package placement.
+        // Only the packageId is used to determine the installed package location.
+        if (packageId.empty() || packageId == "." || packageId == ".." || packageId.find('/') != std::string::npos)
         {
-            std::cerr << "[libPackage] Invalid packageId/version: " << packageId << ", " << version << std::endl;
+            std::cerr << "[libPackage] Invalid packageId: " << packageId << std::endl;
             return Result::FAILED;
         }
         auto package = openPackage(fileLocator, true);
@@ -329,11 +329,9 @@ namespace packagemanager
                 return Result::FAILED;
         }
 
-        // Create the directory structure. Remember which path components do not exist yet:
-        // syncing packagePath after the rename only persists the package file's entry, not the
-        // newly created packageId/version directory entries - those live in their parents and
-        // each affected parent must be fsynced separately for the new path to survive a crash.
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version;
+        // Ignore version information when choosing the installed package path. The package is
+        // stored under packageId only so all installed versions share a single directory entry.
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId;
         std::vector<std::filesystem::path> createdDirs;
         for (auto dir = packagePath; dir != AppInstallationPath && !std::filesystem::exists(dir); dir = dir.parent_path())
         {
@@ -370,7 +368,7 @@ namespace packagemanager
             // and it may have been replaced in between (TOCTOU). Verify the staged copy
             // itself, so only bytes verified as staged can be renamed into place.
             auto stagedPackage = openPackage(tempRalfPackagePath, true);
-            if (!stagedPackage || stagedPackage->id() != packageId || stagedPackage->version().toString() != version)
+            if (!stagedPackage || stagedPackage->id() != packageId)
             {
                 std::cerr << "[libPackage] Staged package verification failed for: " << tempRalfPackagePath << std::endl;
                 std::filesystem::remove(tempRalfPackagePath);
@@ -434,7 +432,7 @@ namespace packagemanager
         if (extractMetadataFromPackage(package.value(), configMetadata))
         {
             if (configMetadata.dial)
-            {   
+            {
                 // a re-installed package may have been registered before
                 // without its dial metadata
                 const auto isAlreadyDialRegistered = std::any_of(mDialPackages.begin(), mDialPackages.end(),
@@ -510,7 +508,7 @@ namespace packagemanager
             return Result::FAILED;
         }
         std::cout << "[libPackage] RalfPackageImpl::Uninstall called with packageId: " << packageId << std::endl;
-        // For the time being, we have to remove all the files in the package installation path, until we get a version with specific version to uninstall
+        // Version information is ignored for uninstall. Remove the package by packageId alone.
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId;
         try
         {
@@ -581,11 +579,17 @@ namespace packagemanager
             return Result::FAILED;
         }
         // Step 1: Determine the package path
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
-        auto package = openPackage(packagePath);
+        std::filesystem::path packageInstallLocation;
+        if (!getPackageInstallLocation(packageId, version, packageInstallLocation))
+        {
+            std::cerr << "[libPackage] Failed to get package install location for: " << packageId << ", " << version << std::endl;
+            return Result::FAILED;
+        }
+
+        auto package = openPackage(packageInstallLocation);
         if (!package)
         {
-            std::cerr << "[libPackage] Failed to open package for locking: " << packagePath.string() << std::endl;
+            std::cerr << "[libPackage] Failed to open package for locking: " << packageInstallLocation.string() << std::endl;
             return Result::FAILED;
         }
         // The mount table is keyed by the embedded metadata (package.id() + "_" + version),
@@ -610,7 +614,7 @@ namespace packagemanager
             {
                 std::cout << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
                 configMetadata.ralfPkgPath = tempFilePath.string();
-                unpackedPath = packagePath.parent_path().string();
+                unpackedPath = packageInstallLocation.parent_path().string();
                 return Result::SUCCESS;
             }
         }
@@ -777,11 +781,18 @@ namespace packagemanager
                 break;
             }
 
-            auto fileLocator = std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage;
-            auto depPackage = openPackage(fileLocator);
+            std::filesystem::path depPackageInstallLocation;
+            if (!getPackageInstallLocation(depPackageId, depInstalledVersion, depPackageInstallLocation))
+            {
+                std::cerr << "[libPackage] Failed to get install location for dependency: " << depPackageId << std::endl;
+                status = false;
+                break;
+            }
+
+            auto depPackage = openPackage(depPackageInstallLocation);
             if (!depPackage)
             {
-                std::cerr << "[libPackage] Failed to open package for locking: " << fileLocator.string() << std::endl;
+                std::cerr << "[libPackage] Failed to open package for locking: " << depPackageInstallLocation.string() << std::endl;
                 status = false;
                 break;
             }
@@ -1132,25 +1143,30 @@ namespace packagemanager
     }
     bool RalfPackageImpl::getMetadataAsJson(const std::string &appId, const std::string &version, Json::Value &metadata)
     {
-        auto packagePath = std::filesystem::path(AppInstallationPath) / appId / version / RalfPackage;
-        auto package = openPackage(packagePath);
+        std::filesystem::path packageInstallLocation;
+        if (!getPackageInstallLocation(appId, version, packageInstallLocation))
+        {
+            std::cerr << "[libPackage] Failed to get install location for package: " << appId << std::endl;
+            return false;
+        }
+        auto package = openPackage(packageInstallLocation);
         if (!package)
         {
-            std::cerr << "[libPackage] Failed to open package for getting config list: " << packagePath.string() << std::endl;
+            std::cerr << "[libPackage] Failed to open package for getting config list: " << packageInstallLocation.string() << std::endl;
             return false;
         }
 
         auto packagejson = package->auxMetaDataFile(RDK_PACKAGE_CONFIG_MIME_TYPE);
         if (!packagejson)
         {
-            std::cerr << "[libPackage] Failed to get auxMetaDataFile: " << packagejson.error().what() << std::endl;
+            std::cerr << "[libPackage] Failed to get auxMetaDataFile: " << packageInstallLocation.string() << std::endl;
             return false;
         }
 
         const auto contents = packagejson->readAll();
         if (!contents)
         {
-            std::cerr << "[libPackage] Failed to read contents of auxMetaDataFile: " << packagePath.string() << std::endl;
+            std::cerr << "[libPackage] Failed to read contents of auxMetaDataFile: " << packageInstallLocation.string() << std::endl;
             return false;
         }
         std::string jsonContent(reinterpret_cast<const char *>(contents->data()), contents->size());
@@ -1162,10 +1178,26 @@ namespace packagemanager
 
         if (!Json::parseFromStream(readerBuilder, jsonStream, &metadata, &parseErrors))
         {
-            std::cerr << "[libPackage] Failed to parse config JSON for dial package: " << packagePath.string()
+            std::cerr << "[libPackage] Failed to parse config JSON for dial package: " << packageInstallLocation.string()
                       << ": " << parseErrors << std::endl;
             return false;
         }
+        return true;
+    }
+    bool RalfPackageImpl::getPackageInstallLocation(const std::string &packageId, const std::string &version, std::filesystem::path &packageLocation)
+    {
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / RalfPackage;
+        if (!std::filesystem::exists(packagePath))
+        {
+            // Look for the package installation location based on the package ID and version.
+            packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
+            if (!std::filesystem::exists(packagePath))
+            {
+                std::cerr << "[libPackage] Package path does not exist: " << packagePath.string() << std::endl;
+                return false;
+            }
+        }
+        packageLocation = packagePath;
         return true;
     }
 } // namespace packagemanager
