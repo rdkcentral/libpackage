@@ -40,6 +40,7 @@ namespace
     static constexpr const char *RalfPackage = "package.ralf";
     static constexpr const char *pkgCertDirPath = RDK_PACKAGE_CERT_PATH;
     static constexpr const char *BuildReference = BUILD_REFERENCE;
+    static constexpr const char *ConversionMarkerFile = ".conversion_done";
 
     // A (packageId, version) key is safe to use in filesystem paths if the id is a plain
     // path component (non-empty, not "." or "..", no separator) and the version parses as a
@@ -206,6 +207,8 @@ namespace packagemanager
         }
         else
         {
+            // Let us convert legacy installation to new format.
+            convertLegacyInstallationToNewFormat();
             // Reclaim staging files left behind by interrupted installs before scanning.
             cleanupStaleStagingFiles();
 
@@ -580,7 +583,7 @@ namespace packagemanager
         }
         // Step 1: Determine the package path
         std::filesystem::path packageInstallLocation;
-        if (!getPackageInstallLocation(packageId, version, packageInstallLocation))
+        if (!getPackageInstallLocation(packageId, packageInstallLocation))
         {
             std::cerr << "[libPackage] Failed to get package install location for: " << packageId << ", " << version << std::endl;
             return Result::FAILED;
@@ -782,7 +785,7 @@ namespace packagemanager
             }
 
             std::filesystem::path depPackageInstallLocation;
-            if (!getPackageInstallLocation(depPackageId, depInstalledVersion, depPackageInstallLocation))
+            if (!getPackageInstallLocation(depPackageId, depPackageInstallLocation))
             {
                 std::cerr << "[libPackage] Failed to get install location for dependency: " << depPackageId << std::endl;
                 status = false;
@@ -1144,7 +1147,7 @@ namespace packagemanager
     bool RalfPackageImpl::getMetadataAsJson(const std::string &appId, const std::string &version, Json::Value &metadata)
     {
         std::filesystem::path packageInstallLocation;
-        if (!getPackageInstallLocation(appId, version, packageInstallLocation))
+        if (!getPackageInstallLocation(appId, packageInstallLocation))
         {
             std::cerr << "[libPackage] Failed to get install location for package: " << appId << std::endl;
             return false;
@@ -1184,20 +1187,57 @@ namespace packagemanager
         }
         return true;
     }
-    bool RalfPackageImpl::getPackageInstallLocation(const std::string &packageId, const std::string &version, std::filesystem::path &packageLocation)
+    bool RalfPackageImpl::getPackageInstallLocation(const std::string &packageId, std::filesystem::path &packageLocation)
     {
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / RalfPackage;
         if (!std::filesystem::exists(packagePath))
         {
-            // Look for the package installation location based on the package ID and version.
-            packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
-            if (!std::filesystem::exists(packagePath))
-            {
-                std::cerr << "[libPackage] Package path does not exist: " << packagePath.string() << std::endl;
-                return false;
-            }
+            std::cerr << "[libPackage] Package path does not exist: " << packagePath.string() << std::endl;
+            return false;
         }
         packageLocation = packagePath;
         return true;
     }
+    void RalfPackageImpl::convertLegacyInstallationToNewFormat()
+    {
+        // The legacy format is packagedid/version/ralfpackage.ralf
+        // The new format is packagedid/ralfpackage.ralf
+        // If there are multiple versions of same package, we will overwrite the last copied one.
+        // Check if the conversion has already been performed by looking for a marker file.
+
+        const auto conversionMarker = std::filesystem::path(AppInstallationPath) / ConversionMarkerFile;
+        if (std::filesystem::exists(conversionMarker))
+        {
+            return;
+        }
+        std::cout << "[libPackage] Converting legacy package installations to new format..." << std::endl;
+        for (const auto &packageDir : std::filesystem::directory_iterator(AppInstallationPath))
+        {
+            if (!packageDir.is_directory())
+                continue;
+
+            const auto &packageId = packageDir.path().filename();
+            for (const auto &versionDir : std::filesystem::directory_iterator(packageDir.path()))
+            {
+                if (!versionDir.is_directory())
+                {
+                    continue;
+                }
+
+                const auto &legacyPackagePath = versionDir.path() / RalfPackage;
+                if (std::filesystem::exists(legacyPackagePath))
+                {
+                    const auto &newPackagePath = std::filesystem::path(AppInstallationPath) / packageId / RalfPackage;
+                    std::filesystem::create_directories(newPackagePath.parent_path());
+                    std::filesystem::copy_file(legacyPackagePath, newPackagePath, std::filesystem::copy_options::overwrite_existing);
+                }
+                // No need to keep the version folder anyway
+                std::filesystem::remove_all(versionDir.path());
+            }
+        }
+        // Touch the conversion marker file to indicate that the conversion has been performed.
+        std::ofstream markerFile(conversionMarker);
+        markerFile.close();
+    }
+
 } // namespace packagemanager
