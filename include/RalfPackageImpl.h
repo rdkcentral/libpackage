@@ -215,14 +215,13 @@ namespace packagemanager
         /**
          * Retrieves the metadata of the specified package as a JSON object.
          * @param packageId The ID of the package whose metadata is to be retrieved.
-         * @param version The version of the package whose metadata is to be retrieved.
          * @param metadata The JSON object where the metadata will be stored.
          * @return true if the metadata is successfully retrieved; false otherwise.
          */
-        bool getMetadataAsJson(const std::string &packageId, const std::string &version, Json::Value &metadata);
+        bool getMetadataAsJson(const std::string &packageId, Json::Value &metadata);
 
         /**
-         * Given a package ID and version, retrieves the corresponding package install location.
+         * Given a package ID, retrieves the corresponding package install location.
          * @param packageId The ID of the package whose information is to be retrieved.
          * @param packageLocation The standard path where the package is installed.
          * @return true if the package install location is successfully retrieved; false otherwise.

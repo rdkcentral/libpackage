@@ -1099,7 +1099,7 @@ namespace packagemanager
         }
         Json::Value configJson;
 
-        if (getMetadataAsJson(packageId, version, configJson))
+        if (getMetadataAsJson(packageId, configJson))
         {
             // Set indentation to ""
             Json::StreamWriterBuilder writerBuilder;
@@ -1132,7 +1132,7 @@ namespace packagemanager
             auto packageId = pkgInfo->first;
             auto version = pkgInfo->second;
             Json::Value parsedJson;
-            if (getMetadataAsJson(packageId, version, parsedJson))
+            if (getMetadataAsJson(packageId, parsedJson))
             {
                 dialConfigArray.append(parsedJson);
             }
@@ -1144,7 +1144,7 @@ namespace packagemanager
         config = Json::writeString(writerBuilder, dialConfigArray);
         return Result::SUCCESS;
     }
-    bool RalfPackageImpl::getMetadataAsJson(const std::string &appId, const std::string &version, Json::Value &metadata)
+    bool RalfPackageImpl::getMetadataAsJson(const std::string &appId, Json::Value &metadata)
     {
         std::filesystem::path packageInstallLocation;
         if (!getPackageInstallLocation(appId, packageInstallLocation))
@@ -1230,6 +1230,7 @@ namespace packagemanager
                     const auto &newPackagePath = std::filesystem::path(AppInstallationPath) / packageId / RalfPackage;
                     std::filesystem::create_directories(newPackagePath.parent_path());
                     std::filesystem::copy_file(legacyPackagePath, newPackagePath, std::filesystem::copy_options::overwrite_existing);
+                    syncFile(newPackagePath); // Copilot requested for syncing before deleting the legacy version
                 }
                 // No need to keep the version folder anyway
                 std::filesystem::remove_all(versionDir.path());
