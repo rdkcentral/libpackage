@@ -434,37 +434,25 @@ namespace packagemanager
 
         if (extractMetadataFromPackage(package.value(), configMetadata))
         {
-            if (configMetadata.dial)
-            {
-                // a re-installed package may have been registered before
-                // without its dial metadata
-                const auto isAlreadyDialRegistered = std::any_of(mDialPackages.begin(), mDialPackages.end(),
-                                                                 [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                                 { return entry->first == packageId && entry->second == version; });
-                if (!isAlreadyDialRegistered)
-                {
-                    mDialPackages.push_back(configKey);
-                }
-            }
-            else
-            {
-                // a re-installed package may no longer carry dial metadata;
-                // drop any stale dial registration for it
+                // Only register the package for DIAL if it hasn't been registered already
+                // The pair has both id and version. So if there is already a pair, with same package id, we need to replace it.
                 mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
                                                    [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                   { return entry->first == packageId && entry->second == version; }),
+                                                   { return entry->first == packageId; }),
                                     mDialPackages.end());
+            if (configMetadata.dial)
+            {
+                // At this point, any existing entry with the same package ID has been removed, ensuring that the new entry will be the only one for this package ID.
+                mDialPackages.push_back(configKey);
             }
         }
-
-        // On a re-install (file swap) of an already known package, do not register it twice
-        const auto isAlreadyRegistered = std::any_of(mInstalledPackages.begin(), mInstalledPackages.end(),
-                                                     [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                     { return entry->first == packageId && entry->second == version; });
-        if (!isAlreadyRegistered)
-        {
-            mInstalledPackages.push_back(configKey);
-        }
+        // Similar as dial entries. We need to ensure that the packages are not registered multiple times.
+        mInstalledPackages.erase(std::remove_if(mInstalledPackages.begin(), mInstalledPackages.end(),
+                                                [&packageId](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                                { return entry->first == packageId; }),
+                                 mInstalledPackages.end());
+        // At this point, any existing entry with the same package ID has been removed, ensuring that the new entry will be the only one for this package ID.
+        mInstalledPackages.push_back(configKey);
 
         return Result::SUCCESS;
     }
@@ -486,7 +474,8 @@ namespace packagemanager
 
                 if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
                 {
-                    std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: " << depPackageId << std::endl;
+                    std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: "
+                              << depPackageId << ", version " << depPkgVersion << std::endl;
                     status = false;
                     break;
                 }
@@ -526,31 +515,17 @@ namespace packagemanager
         }
         // TODO we need to remove the entries from mInstalledPackages vector. Since currently no version info is passed, this is on hold.
         // For the time being, we will remove every instance of the package from the installed packages list.
-        for (auto it = mInstalledPackages.begin(); it != mInstalledPackages.end();)
-        {
-            // the vector is a pair of packageId and version
-            if ((*it)->first == packageId)
-            {
-                it = mInstalledPackages.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
+        mInstalledPackages.erase(std::remove_if(mInstalledPackages.begin(), mInstalledPackages.end(),
+                                                [&packageId](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                                { return entry->first == packageId; }),
+                                 mInstalledPackages.end());
+
         // Remove the package from the dial packages list as well
         // TODO the same logic applies here as well.
-        for (auto it = mDialPackages.begin(); it != mDialPackages.end();)
-        {
-            if ((*it)->first == packageId)
-            {
-                it = mDialPackages.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
+        mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
+                                           [&packageId](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                           { return entry->first == packageId; }),
+                            mDialPackages.end());
         return Result::SUCCESS;
     }
 
@@ -595,6 +570,7 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open package for locking: " << packageInstallLocation.string() << std::endl;
             return Result::FAILED;
         }
+
         // The mount table is keyed by the embedded metadata (package.id() + "_" + version),
         // while Unlock looks entries up by the caller's arguments. Reject a mismatch here so
         // both sides always use the same canonical key; otherwise the mount would be stored
@@ -605,10 +581,8 @@ namespace packagemanager
                       << " but package contains " << package->id() << ", " << package->version().toString() << std::endl;
             return Result::FAILED;
         }
-
         std::vector<RalfPackageInfo> mountPkgList;
-        auto status = lockPackage(package.value(), mountPkgList, configMetadata);
-        if (status)
+        if (lockPackage(package.value(), mountPkgList, configMetadata))
         {
             // We need to dump this to a temp file and add it as par of configMetadata.
             // packageId/version were already validated as a path-safe key at entry.
@@ -779,7 +753,8 @@ namespace packagemanager
             std::string depInstalledVersion;
             if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
             {
-                std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId << std::endl;
+                std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId
+                          << ", version " << depPkgVersion << std::endl;
                 status = false;
                 break;
             }
@@ -1240,5 +1215,4 @@ namespace packagemanager
         std::ofstream markerFile(conversionMarker);
         markerFile.close();
     }
-
 } // namespace packagemanager
