@@ -8,6 +8,9 @@ PROJECT_ROOT := $(abspath ..)
 GTEST_DIR ?= $(PROJECT_ROOT)/.deps/googletest
 GTEST_BUILD_DIR ?= $(PROJECT_ROOT)/.deps/build
 GTEST_REPO ?= https://github.com/google/googletest.git
+# Pin to a reviewed tag - a bare clone of the default branch would silently
+# move with upstream. Matches the GTEST_REF used by the appmanagers L1 flow.
+GTEST_REF ?= v1.15.0
 
 GTEST_CFLAGS = -isystem $(GTEST_DIR)/googletest/include -I$(GTEST_DIR)/googletest -pthread
 GTEST_OBJS = $(GTEST_BUILD_DIR)/gtest-all.o $(GTEST_BUILD_DIR)/gtest_main.o
@@ -21,7 +24,7 @@ build:
 
 $(GTEST_DIR):
 	mkdir -p $(PROJECT_ROOT)/.deps
-	git clone --depth 1 $(GTEST_REPO) $(GTEST_DIR)
+	git clone --depth 1 --branch $(GTEST_REF) $(GTEST_REPO) $(GTEST_DIR)
 
 $(GTEST_BUILD_DIR):
 	mkdir -p $(GTEST_BUILD_DIR)
