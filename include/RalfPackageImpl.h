@@ -91,14 +91,15 @@ namespace packagemanager
 
         /**
          * Returns the ids of currently running (locked) applications that use the given
-         * package - they are the package or depend on it, directly or transitively.
+         * package - they are the package or depend on it, directly or transitively,
+         * serialized as a JSON array of strings ("[]" when none).
          *
          * The package is matched by id only, deliberately without a version: running instances
          * are locked on the version that was installed at Lock time, which is typically older
          * than the version just installed. Matching on the new version would find nothing,
          * since that version is not mounted (locked) yet.
          */
-        Result GetRunningApplicationsUsingPackage(const std::string &packageId, std::vector<std::string> &applicationIds) override;
+        Result GetRunningApplicationsUsingPackage(const std::string &packageId, std::string &applicationIds) override;
 
         Result GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config) override;
 

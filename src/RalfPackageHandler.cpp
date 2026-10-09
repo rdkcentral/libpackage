@@ -680,16 +680,32 @@ namespace packagemanager
         return unmountResult ? Result::SUCCESS : Result::FAILED;
     }
 
-    Result RalfPackageImpl::GetRunningApplicationsUsingPackage(const std::string &packageId, std::vector<std::string> &applicationIds)
+    Result RalfPackageImpl::GetRunningApplicationsUsingPackage(const std::string &packageId, std::string &applicationIds)
     {
         if (!mIsInitialized)
         {
             std::cerr << "[libPackage] RalfPackageImpl::GetRunningApplicationsUsingPackage called before initialization." << std::endl;
             return Result::FAILED;
         }
-        findRunningApplicationsUsingPackage(packageId, lockedDependencies(mMountedPackages), applicationIds);
+        std::vector<std::string> appIds;
+        findRunningApplicationsUsingPackage(packageId, lockedDependencies(mMountedPackages), appIds);
+
+        // Serialize as a compact JSON array of strings ("[]" when empty)
+        Json::Value idsJson(Json::arrayValue);
+        for (const auto &appId : appIds)
+        {
+            idsJson.append(appId);
+        }
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = "";
+        applicationIds = Json::writeString(writerBuilder, idsJson);
+        if (!applicationIds.empty() && applicationIds.back() == '\n')
+        {
+            applicationIds.pop_back();
+        }
+
         std::cout << "[libPackage] GetRunningApplicationsUsingPackage for packageId: " << packageId
-                  << " -> " << applicationIds.size() << " application(s) using it" << std::endl;
+                  << " -> " << applicationIds << std::endl;
         return Result::SUCCESS;
     }
 
