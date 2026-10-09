@@ -31,7 +31,7 @@
 
 #include <fcntl.h>  // For open()
 #include <unistd.h> // For fsync()/close()
-#include <pwd.h> //For getting user id and group id of ralf user
+#include <pwd.h>    //For getting user id and group id of ralf user
 
 namespace
 {
@@ -40,6 +40,7 @@ namespace
     static constexpr const char *RalfPackage = "package.ralf";
     static constexpr const char *pkgCertDirPath = RDK_PACKAGE_CERT_PATH;
     static constexpr const char *BuildReference = BUILD_REFERENCE;
+    static constexpr const char *ConversionMarkerFile = ".conversion_done";
 
     // A (packageId, version) key is safe to use in filesystem paths if the id is a plain
     // path component (non-empty, not "." or "..", no separator) and the version parses as a
@@ -206,6 +207,8 @@ namespace packagemanager
         }
         else
         {
+            // Let us convert legacy installation to new format.
+            convertLegacyInstallationToNewFormat();
             // Reclaim staging files left behind by interrupted installs before scanning.
             cleanupStaleStagingFiles();
 
@@ -297,11 +300,11 @@ namespace packagemanager
             return Result::FAILED;
         }
         std::cout << "[libPackage] RalfPackageImpl::Install called with packageId: " << packageId << ", version: " << version << ", fileLocator: " << fileLocator << std::endl;
-        // packageId/version are caller-supplied and used in filesystem paths below; reject
-        // anything that is not a path-safe key before touching the filesystem.
-        if (!isPathSafePackageKey(packageId, version))
+        // Version is intentionally ignored for install time path resolution and package placement.
+        // Only the packageId is used to determine the installed package location.
+        if (packageId.empty() || packageId == "." || packageId == ".." || packageId.find('/') != std::string::npos)
         {
-            std::cerr << "[libPackage] Invalid packageId/version: " << packageId << ", " << version << std::endl;
+            std::cerr << "[libPackage] Invalid packageId: " << packageId << std::endl;
             return Result::FAILED;
         }
         auto package = openPackage(fileLocator, true);
@@ -329,11 +332,9 @@ namespace packagemanager
                 return Result::FAILED;
         }
 
-        // Create the directory structure. Remember which path components do not exist yet:
-        // syncing packagePath after the rename only persists the package file's entry, not the
-        // newly created packageId/version directory entries - those live in their parents and
-        // each affected parent must be fsynced separately for the new path to survive a crash.
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version;
+        // Ignore version information when choosing the installed package path. The package is
+        // stored under packageId only so all installed versions share a single directory entry.
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId;
         std::vector<std::filesystem::path> createdDirs;
         for (auto dir = packagePath; dir != AppInstallationPath && !std::filesystem::exists(dir); dir = dir.parent_path())
         {
@@ -370,7 +371,7 @@ namespace packagemanager
             // and it may have been replaced in between (TOCTOU). Verify the staged copy
             // itself, so only bytes verified as staged can be renamed into place.
             auto stagedPackage = openPackage(tempRalfPackagePath, true);
-            if (!stagedPackage || stagedPackage->id() != packageId || stagedPackage->version().toString() != version)
+            if (!stagedPackage || stagedPackage->id() != packageId)
             {
                 std::cerr << "[libPackage] Staged package verification failed for: " << tempRalfPackagePath << std::endl;
                 std::filesystem::remove(tempRalfPackagePath);
@@ -433,37 +434,25 @@ namespace packagemanager
 
         if (extractMetadataFromPackage(package.value(), configMetadata))
         {
-            if (configMetadata.dial)
-            {   
-                // a re-installed package may have been registered before
-                // without its dial metadata
-                const auto isAlreadyDialRegistered = std::any_of(mDialPackages.begin(), mDialPackages.end(),
-                                                                 [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                                 { return entry->first == packageId && entry->second == version; });
-                if (!isAlreadyDialRegistered)
-                {
-                    mDialPackages.push_back(configKey);
-                }
-            }
-            else
-            {
-                // a re-installed package may no longer carry dial metadata;
-                // drop any stale dial registration for it
+                // Only register the package for DIAL if it hasn't been registered already
+                // The pair has both id and version. So if there is already a pair, with same package id, we need to replace it.
                 mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
                                                    [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                   { return entry->first == packageId && entry->second == version; }),
+                                                   { return entry->first == packageId; }),
                                     mDialPackages.end());
+            if (configMetadata.dial)
+            {
+                // At this point, any existing entry with the same package ID has been removed, ensuring that the new entry will be the only one for this package ID.
+                mDialPackages.push_back(configKey);
             }
         }
-
-        // On a re-install (file swap) of an already known package, do not register it twice
-        const auto isAlreadyRegistered = std::any_of(mInstalledPackages.begin(), mInstalledPackages.end(),
-                                                     [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                     { return entry->first == packageId && entry->second == version; });
-        if (!isAlreadyRegistered)
-        {
-            mInstalledPackages.push_back(configKey);
-        }
+        // Similar as dial entries. We need to ensure that the packages are not registered multiple times.
+        mInstalledPackages.erase(std::remove_if(mInstalledPackages.begin(), mInstalledPackages.end(),
+                                                [&packageId](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                                { return entry->first == packageId; }),
+                                 mInstalledPackages.end());
+        // At this point, any existing entry with the same package ID has been removed, ensuring that the new entry will be the only one for this package ID.
+        mInstalledPackages.push_back(configKey);
 
         return Result::SUCCESS;
     }
@@ -485,7 +474,8 @@ namespace packagemanager
 
                 if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
                 {
-                    std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: " << depPackageId << std::endl;
+                    std::cerr << "[libPackage] [DEPENDENCY_CHECK] Failed to identify dependency version for package: "
+                              << depPackageId << ", version " << depPkgVersion << std::endl;
                     status = false;
                     break;
                 }
@@ -510,7 +500,7 @@ namespace packagemanager
             return Result::FAILED;
         }
         std::cout << "[libPackage] RalfPackageImpl::Uninstall called with packageId: " << packageId << std::endl;
-        // For the time being, we have to remove all the files in the package installation path, until we get a version with specific version to uninstall
+        // Version information is ignored for uninstall. Remove the package by packageId alone.
         auto packagePath = std::filesystem::path(AppInstallationPath) / packageId;
         try
         {
@@ -525,31 +515,17 @@ namespace packagemanager
         }
         // TODO we need to remove the entries from mInstalledPackages vector. Since currently no version info is passed, this is on hold.
         // For the time being, we will remove every instance of the package from the installed packages list.
-        for (auto it = mInstalledPackages.begin(); it != mInstalledPackages.end();)
-        {
-            // the vector is a pair of packageId and version
-            if ((*it)->first == packageId)
-            {
-                it = mInstalledPackages.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
+        mInstalledPackages.erase(std::remove_if(mInstalledPackages.begin(), mInstalledPackages.end(),
+                                                [&packageId](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                                { return entry->first == packageId; }),
+                                 mInstalledPackages.end());
+
         // Remove the package from the dial packages list as well
         // TODO the same logic applies here as well.
-        for (auto it = mDialPackages.begin(); it != mDialPackages.end();)
-        {
-            if ((*it)->first == packageId)
-            {
-                it = mDialPackages.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
+        mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
+                                           [&packageId](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                           { return entry->first == packageId; }),
+                            mDialPackages.end());
         return Result::SUCCESS;
     }
 
@@ -581,13 +557,20 @@ namespace packagemanager
             return Result::FAILED;
         }
         // Step 1: Determine the package path
-        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / version / RalfPackage;
-        auto package = openPackage(packagePath);
-        if (!package)
+        std::filesystem::path packageInstallLocation;
+        if (!getPackageInstallLocation(packageId, packageInstallLocation))
         {
-            std::cerr << "[libPackage] Failed to open package for locking: " << packagePath.string() << std::endl;
+            std::cerr << "[libPackage] Failed to get package install location for: " << packageId << ", " << version << std::endl;
             return Result::FAILED;
         }
+
+        auto package = openPackage(packageInstallLocation);
+        if (!package)
+        {
+            std::cerr << "[libPackage] Failed to open package for locking: " << packageInstallLocation.string() << std::endl;
+            return Result::FAILED;
+        }
+
         // The mount table is keyed by the embedded metadata (package.id() + "_" + version),
         // while Unlock looks entries up by the caller's arguments. Reject a mismatch here so
         // both sides always use the same canonical key; otherwise the mount would be stored
@@ -598,10 +581,8 @@ namespace packagemanager
                       << " but package contains " << package->id() << ", " << package->version().toString() << std::endl;
             return Result::FAILED;
         }
-
         std::vector<RalfPackageInfo> mountPkgList;
-        auto status = lockPackage(package.value(), mountPkgList, configMetadata);
-        if (status)
+        if (lockPackage(package.value(), mountPkgList, configMetadata))
         {
             // We need to dump this to a temp file and add it as par of configMetadata.
             // packageId/version were already validated as a path-safe key at entry.
@@ -610,7 +591,7 @@ namespace packagemanager
             {
                 std::cout << "[libPackage] Successfully serialized mount package list to: " << tempFilePath << std::endl;
                 configMetadata.ralfPkgPath = tempFilePath.string();
-                unpackedPath = packagePath.parent_path().string();
+                unpackedPath = packageInstallLocation.parent_path().string();
                 return Result::SUCCESS;
             }
         }
@@ -772,16 +753,24 @@ namespace packagemanager
             std::string depInstalledVersion;
             if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
             {
-                std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId << std::endl;
+                std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId
+                          << ", version " << depPkgVersion << std::endl;
                 status = false;
                 break;
             }
 
-            auto fileLocator = std::filesystem::path(AppInstallationPath) / depPackageId / depInstalledVersion / RalfPackage;
-            auto depPackage = openPackage(fileLocator);
+            std::filesystem::path depPackageInstallLocation;
+            if (!getPackageInstallLocation(depPackageId, depPackageInstallLocation))
+            {
+                std::cerr << "[libPackage] Failed to get install location for dependency: " << depPackageId << std::endl;
+                status = false;
+                break;
+            }
+
+            auto depPackage = openPackage(depPackageInstallLocation);
             if (!depPackage)
             {
-                std::cerr << "[libPackage] Failed to open package for locking: " << fileLocator.string() << std::endl;
+                std::cerr << "[libPackage] Failed to open package for locking: " << depPackageInstallLocation.string() << std::endl;
                 status = false;
                 break;
             }
@@ -1085,7 +1074,7 @@ namespace packagemanager
         }
         Json::Value configJson;
 
-        if (getMetadataAsJson(packageId, version, configJson))
+        if (getMetadataAsJson(packageId, configJson))
         {
             // Set indentation to ""
             Json::StreamWriterBuilder writerBuilder;
@@ -1118,7 +1107,7 @@ namespace packagemanager
             auto packageId = pkgInfo->first;
             auto version = pkgInfo->second;
             Json::Value parsedJson;
-            if (getMetadataAsJson(packageId, version, parsedJson))
+            if (getMetadataAsJson(packageId, parsedJson))
             {
                 dialConfigArray.append(parsedJson);
             }
@@ -1130,27 +1119,32 @@ namespace packagemanager
         config = Json::writeString(writerBuilder, dialConfigArray);
         return Result::SUCCESS;
     }
-    bool RalfPackageImpl::getMetadataAsJson(const std::string &appId, const std::string &version, Json::Value &metadata)
+    bool RalfPackageImpl::getMetadataAsJson(const std::string &appId, Json::Value &metadata)
     {
-        auto packagePath = std::filesystem::path(AppInstallationPath) / appId / version / RalfPackage;
-        auto package = openPackage(packagePath);
+        std::filesystem::path packageInstallLocation;
+        if (!getPackageInstallLocation(appId, packageInstallLocation))
+        {
+            std::cerr << "[libPackage] Failed to get install location for package: " << appId << std::endl;
+            return false;
+        }
+        auto package = openPackage(packageInstallLocation);
         if (!package)
         {
-            std::cerr << "[libPackage] Failed to open package for getting config list: " << packagePath.string() << std::endl;
+            std::cerr << "[libPackage] Failed to open package for getting config list: " << packageInstallLocation.string() << std::endl;
             return false;
         }
 
         auto packagejson = package->auxMetaDataFile(RDK_PACKAGE_CONFIG_MIME_TYPE);
         if (!packagejson)
         {
-            std::cerr << "[libPackage] Failed to get auxMetaDataFile: " << packagejson.error().what() << std::endl;
+            std::cerr << "[libPackage] Failed to get auxMetaDataFile: " << packageInstallLocation.string() << std::endl;
             return false;
         }
 
         const auto contents = packagejson->readAll();
         if (!contents)
         {
-            std::cerr << "[libPackage] Failed to read contents of auxMetaDataFile: " << packagePath.string() << std::endl;
+            std::cerr << "[libPackage] Failed to read contents of auxMetaDataFile: " << packageInstallLocation.string() << std::endl;
             return false;
         }
         std::string jsonContent(reinterpret_cast<const char *>(contents->data()), contents->size());
@@ -1162,10 +1156,63 @@ namespace packagemanager
 
         if (!Json::parseFromStream(readerBuilder, jsonStream, &metadata, &parseErrors))
         {
-            std::cerr << "[libPackage] Failed to parse config JSON for dial package: " << packagePath.string()
+            std::cerr << "[libPackage] Failed to parse config JSON for dial package: " << packageInstallLocation.string()
                       << ": " << parseErrors << std::endl;
             return false;
         }
         return true;
+    }
+    bool RalfPackageImpl::getPackageInstallLocation(const std::string &packageId, std::filesystem::path &packageLocation)
+    {
+        auto packagePath = std::filesystem::path(AppInstallationPath) / packageId / RalfPackage;
+        if (!std::filesystem::exists(packagePath))
+        {
+            std::cerr << "[libPackage] Package path does not exist: " << packagePath.string() << std::endl;
+            return false;
+        }
+        packageLocation = packagePath;
+        return true;
+    }
+    void RalfPackageImpl::convertLegacyInstallationToNewFormat()
+    {
+        // The legacy format is packagedid/version/ralfpackage.ralf
+        // The new format is packagedid/ralfpackage.ralf
+        // If there are multiple versions of same package, we will overwrite the last copied one.
+        // Check if the conversion has already been performed by looking for a marker file.
+
+        const auto conversionMarker = std::filesystem::path(AppInstallationPath) / ConversionMarkerFile;
+        if (std::filesystem::exists(conversionMarker))
+        {
+            return;
+        }
+        std::cout << "[libPackage] Converting legacy package installations to new format..." << std::endl;
+        for (const auto &packageDir : std::filesystem::directory_iterator(AppInstallationPath))
+        {
+            if (!packageDir.is_directory())
+                continue;
+
+            const auto &packageId = packageDir.path().filename();
+            for (const auto &versionDir : std::filesystem::directory_iterator(packageDir.path()))
+            {
+                if (!versionDir.is_directory())
+                {
+                    continue;
+                }
+
+                const auto &legacyPackagePath = versionDir.path() / RalfPackage;
+                if (std::filesystem::exists(legacyPackagePath))
+                {
+                    const auto &newPackagePath = std::filesystem::path(AppInstallationPath) / packageId / RalfPackage;
+                    std::filesystem::create_directories(newPackagePath.parent_path());
+                    std::filesystem::copy_file(legacyPackagePath, newPackagePath, std::filesystem::copy_options::overwrite_existing);
+                    syncFile(newPackagePath); // Copilot requested for syncing before deleting the legacy version
+                }
+                // No need to keep the version folder anyway
+                std::filesystem::remove_all(versionDir.path());
+            }
+        }
+        // Touch the conversion marker file to indicate that the conversion has been performed.
+        std::ofstream markerFile(conversionMarker);
+        markerFile.close();
     }
 } // namespace packagemanager
