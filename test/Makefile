@@ -43,6 +43,6 @@ test: $(TEST_BIN)
 	./$(TEST_BIN)
 
 clean:
-	rm -rf build
+	rm -rf build $(GTEST_BUILD_DIR)
 
 .PHONY: all test clean
