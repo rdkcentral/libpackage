@@ -25,6 +25,7 @@
 #include <IPackageImpl.h>
 #include <ralf/Package.h>
 #include <ralf/VersionConstraint.h>
+#include <json/json.h>
 
 #include <sys/types.h> // For uid_t and gid_t
 
@@ -52,6 +53,12 @@ namespace packagemanager
         // We need this to keep track of how many times a package is mounted. Otherwise we will unmount it too early
         int mountCount = 1;
         std::string pkgJsonPath;
+        // Resolved (packageId, version) keys of the direct (one level down) dependencies locked
+        // together with this package. Recorded at lock time so that unlock does not need to
+        // re-open the package file. Structured keys are used instead of flat "id_version"
+        // strings, so no separator collisions are possible.
+        // Deeper levels of the tree are stored in the entries of the dependencies themselves.
+        std::vector<ConfigMetadataKey> dependencies;
         std::unique_ptr<ralf::PackageMount> packageMount;
         void incMountCount() { mountCount++; }
         void decMountCount() { mountCount--; }
@@ -67,7 +74,6 @@ namespace packagemanager
     {
     private:
         static int getInstalledPackages(std::vector<std::string> &pacakgeList);
-        static void getPackageIdAndVersionFromRalfPackage(const std::string &packagePath, std::string &appId, std::string &appVersion);
         static bool enableDependencyCheck;
 
     public:
@@ -83,16 +89,31 @@ namespace packagemanager
         Result Unlock(const std::string &packageId, const std::string &version) override;
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
 
+        /**
+         * Returns the ids of currently running (locked) applications that use the given
+         * package - they are the package or depend on it, directly or transitively,
+         * serialized as a JSON array of strings ("[]" when none).
+         *
+         * The package is matched by id only, deliberately without a version: running instances
+         * are locked on the version that was installed at Lock time, which is typically older
+         * than the version just installed. Matching on the new version would find nothing,
+         * since that version is not mounted (locked) yet.
+         */
+        Result GetRunningApplicationsUsingPackage(const std::string &packageId, std::string &applicationIds) override;
+
         Result GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config) override;
+
+        Result GetConfigListForInstalledPackages(const std::string &filter, std::string &config) override;
 
     private:
         // Flag to check initialisation status
         bool mIsInitialized = false;
 
         // Map to hold mountedPackages information.
-        // Key is combination of package id and version.
+        // Key is the canonical (packageId, version) pair - a structured key, so the id may
+        // contain any characters (including "_") without ambiguity.
         // Value is the MountedPackageInfo which has the mount point and other info.
-        std::map<std::string, std::unique_ptr<MountedPackageInfo> > mMountedPackages;
+        std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > mMountedPackages;
 
         // RALF user id and group id. We will use these for setting the right permissions for the mounted package
         uid_t mUserId;
@@ -101,7 +122,11 @@ namespace packagemanager
         // For package verification
         ralf::VerificationBundle mVerificationBundle;
 
-        std::vector<std::unique_ptr<ConfigMetadataKey> > mInstalledPackages;
+        std::vector<std::shared_ptr<ConfigMetadataKey> > mInstalledPackages;
+        // This vector holds the keys for all installed packages that has dial support
+        // This is debatable as we use this call only during bootup. So does it makes sense to makke another
+        // data structure to hold this info?
+        std::vector<std::shared_ptr<ConfigMetadataKey> > mDialPackages;
 
         /**
          * This function checks the dependencies of the given package and returns true if all dependencies are
@@ -142,11 +167,22 @@ namespace packagemanager
         bool lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo, ConfigMetaData &configMetadata);
 
         /**
-         * Unmounts the dependent packages mounted by the specified package.
-         * @param package The package whose dependencies are to be unmounted.
-         * @return true if all dependent packages are unmounted successfully; false otherwise.
+         * Releases a lock on the package identified by the given key. Decrements the mount count of the
+         * package and, recursively, of the dependent packages recorded at lock time, unmounting any
+         * package whose count reaches zero and removing its mount directory. Operates purely on the
+         * in-memory mount table.
+         * @param pkgVerKey The (packageId, version) key of the package to unlock.
+         * @return true if the package and all its dependents were unlocked successfully; false otherwise.
          */
-        bool unmountDependentPackages(const ralf::Package &package);
+        bool unlockPackage(const ConfigMetadataKey &pkgVerKey);
+
+        /**
+         * Builds the adjacency view (package key -> direct dependency keys) of a mount table
+         * for findRunningApplicationsUsingPackage (see RunningApplicationsUsingPackage.h - the shared,
+         * PC-testable implementation this class delegates to).
+         */
+        static std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > lockedDependencies(
+            const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > &mountedPackages);
 
         /**
          * Identifies the installed version of a dependent package that satisfies the given version constraint.
@@ -183,9 +219,43 @@ namespace packagemanager
 
         /**
          * Adds the permissions from the package metadata to the configuration metadata.
-         * @param pkgMetadata The package metadata whose permissions are to be added.
-         * @param configMetadata The configuration metadata to which the permissions will be added.
+         * @param configMetadata The package metadata whose permissions are to be added.
+         * @param appInfo The application info from which the permissions will be added to the configuration metadata.
          */
-        void addPackagePermissionsToConfigMetadata(const ralf::PackageMetaData &pkgMetadata, ConfigMetaData &configMetadata);
+        void addPackagePermissionsToConfigMetadata(const ralf::ApplicationInfo &appInfo, ConfigMetaData &configMetadata);
+
+        /**
+         * Extracts metadata from the given package and populates the provided configuration metadata structure.
+         * @param package The package from which metadata is to be extracted.
+         * @param configMetadata The configuration metadata structure to be populated.
+         * @return true if metadata extraction is successful; false otherwise.
+         */
+        bool extractMetadataFromPackage(const ralf::Package &package, ConfigMetaData &configMetadata);
+
+        /**
+         * Retrieves the metadata of the specified package as a JSON object.
+         * @param packageId The ID of the package whose metadata is to be retrieved.
+         * @param metadata The JSON object where the metadata will be stored.
+         * @return true if the metadata is successfully retrieved; false otherwise.
+         */
+        bool getMetadataAsJson(const std::string &packageId, Json::Value &metadata);
+
+        /**
+         * Given a package ID, retrieves the corresponding package install location.
+         * @param packageId The ID of the package whose information is to be retrieved.
+         * @param packageLocation The standard path where the package is installed.
+         * @return true if the package install location is successfully retrieved; false otherwise.
+         */
+        bool getPackageInstallLocation(const std::string &packageId, std::filesystem::path &packageLocation);
+
+        /**
+         * Converts legacy package installation directories to the new format. We will limit the execution
+         * to one time by touching a file indicating that the conversion has been performed.
+         * The legacy format is packagedid/version/ralfpackage.ralf
+         * The new format is packagedid/ralfpackage.ralf
+         * If there are multiple versions of the same package, the last copied one will overwrite the previous ones.
+         */
+        void convertLegacyInstallationToNewFormat();
     };
+
 }
