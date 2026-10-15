@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-find_package(libralf REQUIRED)
+find_library(ralf_LIBRARIES NAMES ralf REQUIRED)
+find_library(jsoncpp_LIBRARIES NAMES jsoncpp REQUIRED)
+
 include(GNUInstallDirs)
 
 set (PACKAGE_SRCS RalfPackageHandler.cpp RunningApplicationsUsingPackage.cpp)
@@ -52,7 +54,7 @@ if(BUILD_REFERENCE)
     target_compile_definitions(Package PRIVATE BUILD_REFERENCE="${BUILD_REFERENCE}")
 endif()
 
-target_link_libraries(Package PRIVATE ralf jsoncpp)
+target_link_libraries(Package PRIVATE ${ralf_LIBRARIES} ${jsoncpp_LIBRARIES})
 target_include_directories(Package PUBLIC
     $<BUILD_INTERFACE:${LIBPACKAGE_BASE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
