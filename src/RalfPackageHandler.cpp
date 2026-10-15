@@ -18,9 +18,11 @@
  */
 
 #include "RalfPackageImpl.h"
+#include "RunningApplicationsUsingPackage.h"
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
+#include <set>
 #include <ralf/PackageMount.h>
 #include <ralf/PackageMetaData.h>
 #include <ralf/VersionNumber.h>
@@ -657,6 +659,48 @@ namespace packagemanager
         }
 
         return unmountResult ? Result::SUCCESS : Result::FAILED;
+    }
+
+    Result RalfPackageImpl::GetRunningApplicationsUsingPackage(const std::string &packageId, std::string &applicationIds)
+    {
+        if (!mIsInitialized)
+        {
+            std::cerr << "[libPackage] RalfPackageImpl::GetRunningApplicationsUsingPackage called before initialization." << std::endl;
+            return Result::FAILED;
+        }
+        std::vector<std::string> appIds;
+        findRunningApplicationsUsingPackage(packageId, lockedDependencies(mMountedPackages), appIds);
+
+        // Serialize as a compact JSON array of strings ("[]" when empty)
+        Json::Value idsJson(Json::arrayValue);
+        for (const auto &appId : appIds)
+        {
+            idsJson.append(appId);
+        }
+        Json::StreamWriterBuilder writerBuilder;
+        writerBuilder["indentation"] = "";
+        applicationIds = Json::writeString(writerBuilder, idsJson);
+        if (!applicationIds.empty() && applicationIds.back() == '\n')
+        {
+            applicationIds.pop_back();
+        }
+
+        std::cout << "[libPackage] GetRunningApplicationsUsingPackage for packageId: " << packageId
+                  << " -> " << applicationIds << std::endl;
+        return Result::SUCCESS;
+    }
+
+    // Builds the adjacency view (package key -> direct dependency keys) of the
+    // mount table that findRunningApplicationsUsingPackage operates on.
+    std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > RalfPackageImpl::lockedDependencies(
+        const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > &mountedPackages)
+    {
+        std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > adjacency;
+        for (const auto &entry : mountedPackages)
+        {
+            adjacency.emplace(entry.first, entry.second->dependencies);
+        }
+        return adjacency;
     }
 
     Result RalfPackageImpl::GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata)
