@@ -75,6 +75,7 @@ namespace packagemanager
     private:
         static int getInstalledPackages(std::vector<std::string> &pacakgeList);
         static bool enableDependencyCheck;
+        PackageSpecifierRuntimeMap mPackageSpecifierRuntimes;
 
     public:
         ~RalfPackageImpl() override = default;
@@ -88,6 +89,10 @@ namespace packagemanager
         Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) override;
         Result Unlock(const std::string &packageId, const std::string &version) override;
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
+
+        Result SetPackageSpecifierRuntime(const std::string &packageSpecifier, const std::string &packageId) override;
+
+        Result GetPackageSpecifierRuntimes(PackageSpecifierRuntimeMap &rtPkgSpecifierList) override;
 
         /**
          * Returns the ids of currently running (locked) applications that use the given
@@ -113,7 +118,7 @@ namespace packagemanager
         // Key is the canonical (packageId, version) pair - a structured key, so the id may
         // contain any characters (including "_") without ambiguity.
         // Value is the MountedPackageInfo which has the mount point and other info.
-        std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > mMountedPackages;
+        std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo>> mMountedPackages;
 
         // RALF user id and group id. We will use these for setting the right permissions for the mounted package
         uid_t mUserId;
@@ -122,11 +127,11 @@ namespace packagemanager
         // For package verification
         ralf::VerificationBundle mVerificationBundle;
 
-        std::vector<std::shared_ptr<ConfigMetadataKey> > mInstalledPackages;
+        std::vector<std::shared_ptr<ConfigMetadataKey>> mInstalledPackages;
         // This vector holds the keys for all installed packages that has dial support
         // This is debatable as we use this call only during bootup. So does it makes sense to makke another
         // data structure to hold this info?
-        std::vector<std::shared_ptr<ConfigMetadataKey> > mDialPackages;
+        std::vector<std::shared_ptr<ConfigMetadataKey>> mDialPackages;
 
         /**
          * This function checks the dependencies of the given package and returns true if all dependencies are
@@ -181,8 +186,8 @@ namespace packagemanager
          * for findRunningApplicationsUsingPackage (see RunningApplicationsUsingPackage.h - the shared,
          * PC-testable implementation this class delegates to).
          */
-        static std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > lockedDependencies(
-            const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > &mountedPackages);
+        static std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey>> lockedDependencies(
+            const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo>> &mountedPackages);
 
         /**
          * Identifies the installed version of a dependent package that satisfies the given version constraint.

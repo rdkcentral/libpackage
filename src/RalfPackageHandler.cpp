@@ -436,12 +436,12 @@ namespace packagemanager
 
         if (extractMetadataFromPackage(package.value(), configMetadata))
         {
-                // Only register the package for DIAL if it hasn't been registered already
-                // The pair has both id and version. So if there is already a pair, with same package id, we need to replace it.
-                mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
-                                                   [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
-                                                   { return entry->first == packageId; }),
-                                    mDialPackages.end());
+            // Only register the package for DIAL if it hasn't been registered already
+            // The pair has both id and version. So if there is already a pair, with same package id, we need to replace it.
+            mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
+                                               [&packageId, &version](const std::shared_ptr<ConfigMetadataKey> &entry)
+                                               { return entry->first == packageId; }),
+                                mDialPackages.end());
             if (configMetadata.dial)
             {
                 // At this point, any existing entry with the same package ID has been removed, ensuring that the new entry will be the only one for this package ID.
@@ -692,10 +692,10 @@ namespace packagemanager
 
     // Builds the adjacency view (package key -> direct dependency keys) of the
     // mount table that findRunningApplicationsUsingPackage operates on.
-    std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > RalfPackageImpl::lockedDependencies(
-        const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > &mountedPackages)
+    std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey>> RalfPackageImpl::lockedDependencies(
+        const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo>> &mountedPackages)
     {
-        std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > adjacency;
+        std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey>> adjacency;
         for (const auto &entry : mountedPackages)
         {
             adjacency.emplace(entry.first, entry.second->dependencies);
@@ -1102,7 +1102,6 @@ namespace packagemanager
             // Remove the trailing comma
             permissionsStr.pop_back();
             configMetadata.capabilities = permissionsStr;
-            std::cout << "[libPackage] Added package permissions to config metadata: " << permissionsStr << std::endl;
         }
     }
     packagemanager::Result RalfPackageImpl::GetInstalledPackageMetadata(const std::string &packageId, const std::string &version, std::string &config)
@@ -1258,5 +1257,19 @@ namespace packagemanager
         // Touch the conversion marker file to indicate that the conversion has been performed.
         std::ofstream markerFile(conversionMarker);
         markerFile.close();
+    }
+    Result RalfPackageImpl::SetPackageSpecifierRuntime(const std::string &packageSpecifier, const std::string &packageId)
+    {
+        // Set the runtime package for the given package specifier. This will overwrite any existing mapping for the same specifier.
+        std::cout << "[libPackage] Setting runtime for package specifier: " << packageSpecifier << " to package ID: " << packageId << std::endl;
+        mPackageSpecifierRuntimes[packageSpecifier] = packageId;
+        return SUCCESS;
+    }
+    Result RalfPackageImpl::GetPackageSpecifierRuntimes(PackageSpecifierRuntimeMap &rtPkgSpecifierList)
+    {
+        // We need to return a copy of the current package specifier runtimes to the caller.
+        std::cout << "[libPackage] Returning package specifier runtimes, total count " << mPackageSpecifierRuntimes.size() << std::endl;
+        rtPkgSpecifierList = mPackageSpecifierRuntimes;
+        return SUCCESS;
     }
 } // namespace packagemanager
