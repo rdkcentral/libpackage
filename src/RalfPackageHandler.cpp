@@ -237,6 +237,8 @@ namespace packagemanager
                     std::cerr << "[libPackage] Warning!! Failed to extract metadata from package: " << packagePath << std::endl;
                     continue;
                 }
+                auto metaData = package->metaData();
+                setSupportedRuntimes(metaData.value());
                 appVersion = package->version().toString();
                 auto configKey = std::make_shared<ConfigMetadataKey>(std::make_pair(appId, appVersion));
 
@@ -436,6 +438,8 @@ namespace packagemanager
 
         if (extractMetadataFromPackage(package.value(), configMetadata))
         {
+            auto metaData = package->metaData();
+            setSupportedRuntimes(metaData.value());
             // Only register the package for DIAL if it hasn't been registered already
             // The pair has both id and version. So if there is already a pair, with same package id, we need to replace it.
             mDialPackages.erase(std::remove_if(mDialPackages.begin(), mDialPackages.end(),
@@ -753,7 +757,6 @@ namespace packagemanager
                 configMetadata.dial = appInfoValue.dialInfo().has_value();
             }
         }
-        setSupportedRuntimes(pkgMetadata.value());
         return true;
     }
     bool RalfPackageImpl::packageSpecifierBasedLock(const std::string &packageSpecifier,
