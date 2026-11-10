@@ -558,7 +558,7 @@ namespace packagemanager
             std::cerr << "[libPackage] Invalid packageId/version: " << packageId << ", " << version << std::endl;
             return Result::FAILED;
         }
-        // Step 1: Determine the package path
+        // Determine the package path
         std::filesystem::path packageInstallLocation;
         if (!getPackageInstallLocation(packageId, packageInstallLocation))
         {
@@ -753,28 +753,127 @@ namespace packagemanager
                 configMetadata.dial = appInfoValue.dialInfo().has_value();
             }
         }
+        setSupportedRuntimes(pkgMetadata.value());
         return true;
     }
-
-    bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo, ConfigMetaData &configMetadata)
+    bool RalfPackageImpl::packageSpecifierBasedLock(const std::string &packageSpecifier,
+                                                    std::vector<ConfigMetadataKey> &lockedDependencies,
+                                                    std::vector<RalfPackageInfo> &ralfMountInfo,
+                                                    ConfigMetaData &configMetadata)
     {
+
+        // We already established that packagespecifier is mapped properly.
+        // Let us get the package information based on the specifier.
+
         bool status = false;
-        if (!mIsInitialized)
+        auto dependentPackageInfo = mPackageSpecifierRuntimes[packageSpecifier];
+        std::filesystem::path depPackageInstallLocation;
+        if (!getPackageInstallLocation(dependentPackageInfo, depPackageInstallLocation))
         {
-            std::cerr << "[libPackage] RalfPackageImpl::lockPackage called before initialization." << std::endl;
+            std::cerr << "[libPackage] Failed to get install location for dependent package: " << dependentPackageInfo << std::endl;
+            return status;
+        }
+
+        auto depPackage = openPackage(depPackageInstallLocation);
+        if (!depPackage)
+        {
+            std::cerr << "[libPackage] Failed to open package for locking: " << depPackageInstallLocation.string() << std::endl;
+            return status;
+        }
+
+        if (!lockPackage(depPackage.value(), ralfMountInfo, configMetadata))
+        {
+            std::cerr << "[libPackage] Failed to lock dependent package: " << depPackage->id() << std::endl;
+            return status;
+        }
+        std::string entryArgs;
+        if (getRuntimeArgsForAppType(depPackage.value(), packageSpecifier, entryArgs))
+        {
+            // Not a mandatory feature. This is a stop gap measure to capture runtime configuration for the package.
+            configMetadata.command = entryArgs;
+        }
+        status = true;
+        lockedDependencies.push_back(std::make_pair(depPackage->id(), depPackage->version().toString()));
+        return status;
+    }
+
+    bool RalfPackageImpl::getRuntimeArgsForAppType(const ralf::Package &rtPackage, const std::string &appType, std::string &extraArgs /* out*/)
+    {
+        extraArgs.clear();
+        auto pkgMetadata = rtPackage.metaData();
+        if (!pkgMetadata)
+        {
+            std::cerr << "[libPackage] Failed to read runtime package metadata: " << pkgMetadata.error().what() << std::endl;
             return false;
         }
+
+        auto runtimeInfo = pkgMetadata->runtimeInfo();
+        if (!runtimeInfo)
+        {
+            std::cerr << "[libPackage] Failed to read runtime info from package metadata: " << std::endl;
+            return false;
+        }
+        for (const auto &supportedApplicationType : runtimeInfo->supportedApplicationTypes())
+        {
+            if (supportedApplicationType.type != appType || !supportedApplicationType.args)
+            {
+                continue;
+            }
+
+            const auto &args = *supportedApplicationType.args;
+            if (!args.isObject())
+            {
+                std::cerr << "[libPackage] Runtime arguments for application type " << appType
+                          << " are not an object." << std::endl;
+                return false;
+            }
+
+            const auto &argsObject = args.asObject();
+            const auto entryArgs = argsObject.find("entryArgs");
+            if (entryArgs == argsObject.end())
+            {
+                std::cerr << "[libPackage] No entryArgs found for application type " << appType << std::endl;
+                return false;
+            }
+            if (!entryArgs->second.isString())
+            {
+                std::cerr << "[libPackage] entryArgs for application type " << appType
+                          << " is not a string." << std::endl;
+                return false;
+            }
+            extraArgs = entryArgs->second.asString();
+            return true;
+        }
+        std::cerr << "[libPackage] No matching runtime configuration found for application type " << appType << std::endl;
+        return false;
+    }
+    bool RalfPackageImpl::hasPackageSpecifierMapping(const ralf::PackageMetaData &metadata, std::string &packageSpecifier)
+    {
+        auto hasSpecifier = metadata.specifier().has_value();
+
+        if (hasSpecifier)
+        {
+            packageSpecifier = metadata.specifier().value();
+            // Ensure that a proper runtime is set in the map.
+            if (mPackageSpecifierRuntimes.find(packageSpecifier) != mPackageSpecifierRuntimes.end())
+            {
+                hasSpecifier = true;
+            }
+            else
+            {
+                hasSpecifier = false;
+            }
+        }
+        std::cout << "[libPackage] Checking package specifier mapping for: " << packageSpecifier << ", Result " << hasSpecifier << std::endl;
+        return hasSpecifier;
+    }
+    bool RalfPackageImpl::lockPackage(const ralf::Package &package, std::vector<RalfPackageInfo> &ralfMountInfo, ConfigMetaData &configMetadata)
+    {
         auto packageId = package.id();
         auto version = package.version().toString();
-        std::cout << "[libPackage] Locking packages." << packageId << ", version " << version << std::endl;
+        std::cout << "[libPackage] Locking packages. Package ID: " << packageId << ", version " << version << std::endl;
 
         const ConfigMetadataKey pkgVerKey = std::make_pair(packageId, version);
-        // Directory name for the on-disk mount point only; the in-memory mount table uses
-        // the structured key above. The flat "<id>_<version>" name is unambiguous because
-        // version is guaranteed to contain no '_' (validated at Install via
-        // ralf::VersionNumber::fromString), so the last '_' is always the separator -
-        // the id may contain '_' freely.
-        const std::string pkgVerDirName = packageId + "_" + version;
 
         auto pkgMetadata = package.metaData();
         if (!pkgMetadata)
@@ -783,57 +882,38 @@ namespace packagemanager
             return false;
         }
 
-        status = true;
         // Keys of the dependent packages locked by this call. Used for rollback on failure and
         // stored in the mount table on success, so Unlock can release them without re-opening files.
         std::vector<ConfigMetadataKey> lockedDependencies;
         // Let us process dependencies first
         auto dependencies = pkgMetadata->dependencies();
-        for (const auto &dependency : dependencies)
+        if (dependencies.empty())
         {
-            std::string depPackageId = dependency.first;
-
-            auto depPkgVersion = dependency.second;
-            std::string depInstalledVersion;
-            if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
+            // If there is a packagespecifier and has a mapping for it, we can attempt to lock it using the packageSpecifierBasedLock function.
+            // Otherwise, there is no dependencies, go ahead with locking the package itself.
+            std::string packageSpecifier;
+            if (hasPackageSpecifierMapping(pkgMetadata.value(), packageSpecifier))
             {
-                std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId
-                          << ", version " << depPkgVersion << std::endl;
-                status = false;
-                break;
+                if (!packageSpecifierBasedLock(packageSpecifier, lockedDependencies, ralfMountInfo, configMetadata))
+                {
+                    for (const auto &depKey : lockedDependencies)
+                    {
+                        unlockPackage(depKey);
+                    }
+                    return false;
+                }
             }
-
-            std::filesystem::path depPackageInstallLocation;
-            if (!getPackageInstallLocation(depPackageId, depPackageInstallLocation))
-            {
-                std::cerr << "[libPackage] Failed to get install location for dependency: " << depPackageId << std::endl;
-                status = false;
-                break;
-            }
-
-            auto depPackage = openPackage(depPackageInstallLocation);
-            if (!depPackage)
-            {
-                std::cerr << "[libPackage] Failed to open package for locking: " << depPackageInstallLocation.string() << std::endl;
-                status = false;
-                break;
-            }
-
-            if (!lockPackage(depPackage.value(), ralfMountInfo, configMetadata))
-            {
-                std::cerr << "[libPackage] Failed to lock dependent package: " << depPackageId << std::endl;
-                status = false;
-                break;
-            }
-            lockedDependencies.push_back(std::make_pair(depPackage->id(), depPackage->version().toString()));
         }
-        if (!status)
+        else
         {
-            for (const auto &depKey : lockedDependencies)
+            if (!lockDependentPackages(dependencies, lockedDependencies, ralfMountInfo, configMetadata))
             {
-                unlockPackage(depKey);
+                for (const auto &depKey : lockedDependencies)
+                {
+                    unlockPackage(depKey);
+                }
+                return false;
             }
-            return false;
         }
         // Let us get permissions. from package.
         if (!extractMetadataFromPackage(package, configMetadata))
@@ -848,7 +928,6 @@ namespace packagemanager
             mMountedPackages[pkgVerKey]->incMountCount();
 
             RalfPackageInfo ralfPkgInfo;
-
             ralfPkgInfo.pkgMountPath = mMountedPackages[pkgVerKey]->packageMount->mountPoint();
             ralfPkgInfo.pkgMetaDataPath = mMountedPackages[pkgVerKey]->pkgJsonPath;
             ralfMountInfo.push_back(ralfPkgInfo);
@@ -867,6 +946,13 @@ namespace packagemanager
             }
             return false;
         }
+
+        // Directory name for the on-disk mount point only; the in-memory mount table uses
+        // the structured key above. The flat "<id>_<version>" name is unambiguous because
+        // version is guaranteed to contain no '_' (validated at Install via
+        // ralf::VersionNumber::fromString), so the last '_' is always the separator -
+        // the id may contain '_' freely.
+        const std::string pkgVerDirName = packageId + "_" + version;
 
         auto mountPath = std::filesystem::path(RDK_PACKAGE_MOUNT_PATH) / pkgVerDirName / "rootfs";
         std::filesystem::create_directories(mountPath);
@@ -911,6 +997,52 @@ namespace packagemanager
         ralfMountInfo.push_back(ralfPkgInfo);
 
         return true;
+    }
+    bool RalfPackageImpl::lockDependentPackages(const std::map<std::string, ralf::VersionConstraint> &dependentPackages,
+                                                std::vector<ConfigMetadataKey> &lockedDependencies,
+                                                std::vector<RalfPackageInfo> &ralfMountInfo,
+                                                ConfigMetaData &configMetadata)
+    {
+        bool status = true;
+        for (const auto &dependency : dependentPackages)
+        {
+            std::string depPackageId = dependency.first;
+
+            auto depPkgVersion = dependency.second;
+            std::string depInstalledVersion;
+            if (!identifyDependencyVersion(depPackageId, depPkgVersion, depInstalledVersion))
+            {
+                std::cerr << "[libPackage] Failed to identify dependency version for package: " << depPackageId
+                          << ", version " << depPkgVersion << std::endl;
+                status = false;
+                break;
+            }
+
+            std::filesystem::path depPackageInstallLocation;
+            if (!getPackageInstallLocation(depPackageId, depPackageInstallLocation))
+            {
+                std::cerr << "[libPackage] Failed to get install location for dependency: " << depPackageId << std::endl;
+                status = false;
+                break;
+            }
+
+            auto depPackage = openPackage(depPackageInstallLocation);
+            if (!depPackage)
+            {
+                std::cerr << "[libPackage] Failed to open package for locking: " << depPackageInstallLocation.string() << std::endl;
+                status = false;
+                break;
+            }
+
+            if (!lockPackage(depPackage.value(), ralfMountInfo, configMetadata))
+            {
+                std::cerr << "[libPackage] Failed to lock dependent package: " << depPackageId << std::endl;
+                status = false;
+                break;
+            }
+            lockedDependencies.push_back(std::make_pair(depPackage->id(), depPackage->version().toString()));
+        }
+        return status;
     }
     ralf::Result<ralf::Package> RalfPackageImpl::openPackage(const std::string &fileLocator, bool performFullVerification)
     {
@@ -1070,6 +1202,7 @@ namespace packagemanager
             std::cerr << "[libPackage] Failed to open output file: " << outputPath << std::endl;
             return false;
         }
+
         outputFile << root.toStyledString();
         outputFile.close();
         return true;
@@ -1272,4 +1405,33 @@ namespace packagemanager
         rtPkgSpecifierList = mPackageSpecifierRuntimes;
         return SUCCESS;
     }
+
+    bool RalfPackageImpl::setSupportedRuntimes(const ralf::PackageMetaData &metadata)
+    {
+        // The following steps are expected for setting supported runtimes:
+        // 1. Idenfify whether the package is runtime
+        // 2. Get the supported runtimes from the package metadata
+        // 3. Update the internal mapping of supported packagespecifier for this package
+
+        bool status = false;
+        auto packageType = metadata.type();
+
+        if (packageType == ralf::PackageType::Runtime)
+        {
+            auto runtimeInfo = metadata.runtimeInfo();
+            if (!runtimeInfo)
+            {
+                std::cerr << "[libPackage] Failed to read runtime info from package metadata: " << metadata.id() << std::endl;
+                return status;
+            }
+            for (const auto &supportedApplicationType : runtimeInfo->supportedApplicationTypes())
+            {
+
+                mPackageSpecifierRuntimes[supportedApplicationType.type] = metadata.id();
+            }
+            status = true;
+        }
+        return status;
+    }
+
 } // namespace packagemanager

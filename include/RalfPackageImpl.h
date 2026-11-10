@@ -261,6 +261,52 @@ namespace packagemanager
          * If there are multiple versions of the same package, the last copied one will overwrite the previous ones.
          */
         void convertLegacyInstallationToNewFormat();
+
+        /**
+         * Locks the dependent packages specified in the given map.
+         * @param dependentPackages A map of package IDs to their version constraints.
+         * @param lockedDependencies A vector to store the keys of successfully locked dependencies.
+         * @param ralfMountInfo A vector to store information about the mounted dependent packages.
+         * @param configMetadata The configuration metadata structure to be populated.
+         * @return true if all dependent packages are successfully locked; false otherwise.
+         */
+        bool lockDependentPackages(const std::map<std::string, ralf::VersionConstraint> &dependentPackages,
+                                   std::vector<ConfigMetadataKey> &lockedDependencies,
+                                   std::vector<RalfPackageInfo> &ralfMountInfo,
+                                   ConfigMetaData &configMetadata);
+
+        /**
+         * Locks the package specified by the given package specifier.
+         * @param packageSpecifier The package specifier to lock.
+         * @param lockedDependencies A vector to store the keys of successfully locked dependencies.
+         * @param ralfMountInfo A vector to store information about the mounted dependent packages.
+         * @param configMetadata The configuration metadata structure to be populated.
+         * @return true if the package is successfully locked; false otherwise.
+         */
+        bool packageSpecifierBasedLock(const std::string &packageSpecifier,
+                                       std::vector<ConfigMetadataKey> &lockedDependencies,
+                                       std::vector<RalfPackageInfo> &ralfMountInfo,
+                                       ConfigMetaData &configMetadata);
+
+        /**
+         * Checks if the given package metadata has a mapping for a package specifier.
+         * @param metadata The package metadata to check.
+         * @param packageSpecifier The package specifier to look for.
+         * @return true if a mapping exists; false otherwise.
+         */
+        bool hasPackageSpecifierMapping(const ralf::PackageMetaData &metadata, std::string &packageSpecifier);
+
+        /**
+         * Returns the runtime arguments associated with the given runtime package and application type.
+         * @param rtPackage The runtime package to query.
+         * @param appType The application type to look for.
+         * @param entryArgs The string to store the retrieved runtime arguments.
+         * @return true if the runtime arguments are successfully retrieved; false otherwise.
+         */
+
+        bool getRuntimeArgsForAppType(const ralf::Package &rtPackage, const std::string &appType, std::string &entryArgs /* out*/);
+
+        bool setSupportedRuntimes(const ralf::PackageMetaData &metadata);
     };
 
 }
