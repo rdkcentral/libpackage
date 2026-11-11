@@ -75,6 +75,7 @@ namespace packagemanager
     private:
         static int getInstalledPackages(std::vector<std::string> &pacakgeList);
         static bool enableDependencyCheck;
+        PackageSpecifierRuntimeMap mPackageSpecifierRuntimes;
 
     public:
         ~RalfPackageImpl() override = default;
@@ -88,6 +89,10 @@ namespace packagemanager
         Result Lock(const std::string &packageId, const std::string &version, std::string &unpackedPath, ConfigMetaData &configMetadata, NameValues &additionalLocks) override;
         Result Unlock(const std::string &packageId, const std::string &version) override;
         Result GetFileMetadata(const std::string &fileLocator, std::string &packageId, std::string &version, ConfigMetaData &configMetadata) override;
+
+        Result SetPackageSpecifierRuntime(const std::string &packageSpecifier, const std::string &packageId) override;
+
+        Result GetPackageSpecifierRuntimes(PackageSpecifierRuntimeMap &rtPkgSpecifierList) override;
 
         /**
          * Returns the ids of currently running (locked) applications that use the given
@@ -113,7 +118,7 @@ namespace packagemanager
         // Key is the canonical (packageId, version) pair - a structured key, so the id may
         // contain any characters (including "_") without ambiguity.
         // Value is the MountedPackageInfo which has the mount point and other info.
-        std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > mMountedPackages;
+        std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo>> mMountedPackages;
 
         // RALF user id and group id. We will use these for setting the right permissions for the mounted package
         uid_t mUserId;
@@ -122,11 +127,11 @@ namespace packagemanager
         // For package verification
         ralf::VerificationBundle mVerificationBundle;
 
-        std::vector<std::shared_ptr<ConfigMetadataKey> > mInstalledPackages;
+        std::vector<std::shared_ptr<ConfigMetadataKey>> mInstalledPackages;
         // This vector holds the keys for all installed packages that has dial support
         // This is debatable as we use this call only during bootup. So does it makes sense to makke another
         // data structure to hold this info?
-        std::vector<std::shared_ptr<ConfigMetadataKey> > mDialPackages;
+        std::vector<std::shared_ptr<ConfigMetadataKey>> mDialPackages;
 
         /**
          * This function checks the dependencies of the given package and returns true if all dependencies are
@@ -181,8 +186,8 @@ namespace packagemanager
          * for findRunningApplicationsUsingPackage (see RunningApplicationsUsingPackage.h - the shared,
          * PC-testable implementation this class delegates to).
          */
-        static std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey> > lockedDependencies(
-            const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo> > &mountedPackages);
+        static std::map<ConfigMetadataKey, std::vector<ConfigMetadataKey>> lockedDependencies(
+            const std::map<ConfigMetadataKey, std::unique_ptr<MountedPackageInfo>> &mountedPackages);
 
         /**
          * Identifies the installed version of a dependent package that satisfies the given version constraint.
@@ -256,6 +261,52 @@ namespace packagemanager
          * If there are multiple versions of the same package, the last copied one will overwrite the previous ones.
          */
         void convertLegacyInstallationToNewFormat();
+
+        /**
+         * Locks the dependent packages specified in the given map.
+         * @param dependentPackages A map of package IDs to their version constraints.
+         * @param lockedDependencies A vector to store the keys of successfully locked dependencies.
+         * @param ralfMountInfo A vector to store information about the mounted dependent packages.
+         * @param configMetadata The configuration metadata structure to be populated.
+         * @return true if all dependent packages are successfully locked; false otherwise.
+         */
+        bool lockDependentPackages(const std::map<std::string, ralf::VersionConstraint> &dependentPackages,
+                                   std::vector<ConfigMetadataKey> &lockedDependencies,
+                                   std::vector<RalfPackageInfo> &ralfMountInfo,
+                                   ConfigMetaData &configMetadata);
+
+        /**
+         * Locks the package specified by the given package specifier.
+         * @param packageSpecifier The package specifier to lock.
+         * @param lockedDependencies A vector to store the keys of successfully locked dependencies.
+         * @param ralfMountInfo A vector to store information about the mounted dependent packages.
+         * @param configMetadata The configuration metadata structure to be populated.
+         * @return true if the package is successfully locked; false otherwise.
+         */
+        bool packageSpecifierBasedLock(const std::string &packageSpecifier,
+                                       std::vector<ConfigMetadataKey> &lockedDependencies,
+                                       std::vector<RalfPackageInfo> &ralfMountInfo,
+                                       ConfigMetaData &configMetadata);
+
+        /**
+         * Checks if the given package metadata has a mapping for a package specifier.
+         * @param metadata The package metadata to check.
+         * @param packageSpecifier The package specifier to look for.
+         * @return true if a mapping exists; false otherwise.
+         */
+        bool hasPackageSpecifierMapping(const ralf::PackageMetaData &metadata, std::string &packageSpecifier);
+
+        /**
+         * Returns the runtime arguments associated with the given runtime package and application type.
+         * @param rtPackage The runtime package to query.
+         * @param appType The application type to look for.
+         * @param entryArgs The string to store the retrieved runtime arguments.
+         * @return true if the runtime arguments are successfully retrieved; false otherwise.
+         */
+
+        bool getRuntimeArgsForAppType(const ralf::Package &rtPackage, const std::string &appType, std::string &entryArgs /* out*/);
+
+        bool setSupportedRuntimes(const ralf::PackageMetaData &metadata);
     };
 
 }
