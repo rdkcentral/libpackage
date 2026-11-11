@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout current repository
@@ -46,7 +46,7 @@ jobs:
         with:
           repository: rdkcentral/ralf-utils
           path: ralf-utils
-          ref: v1.2.0
+          ref: v1.3.0
           lfs: 'false'
           fetch-depth: 2          
 
